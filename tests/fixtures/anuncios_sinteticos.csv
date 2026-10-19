@@ -1,0 +1,9 @@
+id;fonte;url;data_coleta;endereco;bairro;latitude;longitude;tipo;finalidade;area_m2;quartos;suites;banheiros;vagas;aluguel;preco;condominio;iptu;periodicidade_iptu;sintetico;precisao_localizacao
+1;Demonstração sintética;https://example.test/1;2026-10-19;Rua Fictícia, 1;Centro;-25,09;-50,16;Casa;Locação;60;2;0;1;1;1000;;100;1200;anual;sim;aproximada
+2;Demonstração sintética;https://example.test/2;2026-10-19;Rua Fictícia, 2;Centro;-25,10;-50,16;Casa;Locação;70;3;0;1;1;1300;;100;1200;anual;sim;aproximada
+3;Demonstração sintética;https://example.test/3;2026-10-19;Rua Fictícia, 3;Centro;-25,11;-50,16;Casa;Locação;80;1;0;1;1;1600;;100;1200;anual;sim;aproximada
+4;Demonstração sintética;https://example.test/4;2026-10-19;Rua Fictícia, 4;Centro;-25,12;-50,16;Casa;Locação;90;2;0;1;1;1900;;100;1200;anual;sim;aproximada
+5;Demonstração sintética;https://example.test/5;2026-10-19;Rua Fictícia, 5;Órfãs;-25,13;-50,16;Casa;Locação;100;3;0;1;1;2200;;100;1200;anual;sim;aproximada
+6;Demonstração sintética;https://example.test/6;2026-10-19;Rua Fictícia, 6;Órfãs;-25,14;-50,16;Casa;Locação;110;1;0;1;1;2500;;100;1200;anual;sim;aproximada
+7;Demonstração sintética;https://example.test/7;2026-10-19;Rua Fictícia, 7;Órfãs;-25,15;-50,16;Casa;Locação;120;2;0;1;1;2800;;100;1200;anual;sim;aproximada
+8;Demonstração sintética;https://example.test/8;2026-10-19;Rua Fictícia, 8;Órfãs;-25,16;-50,16;Casa;Locação;130;3;0;1;1;3100;;100;1200;anual;sim;aproximada
