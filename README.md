@@ -1,1 +1,54 @@
-# mapeamento_estimativa_imoveis
+# Aluguéis de casas em Ponta Grossa
+
+Primeira entrega: importação rastreável de CSV, relatório de qualidade e análise
+exploratória. O mapa interativo, DBSCAN e simulador preditivo são etapas futuras.
+Esta versão não estima aluguéis e não inclui anúncios reais.
+
+## Executar
+Python 3.12 ou superior. Na raiz deste repositório:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -e ".[dev]"
+python -m imoveis_pg analyze tests/fixtures/anuncios_sinteticos.csv --output reports/demo
+python -m pytest -q
+```
+
+Use uma pasta de saída nova a cada execução. O exemplo contém **dados sintéticos**,
+identificados no manifesto e nos gráficos. Para outro CSV:
+
+```bash
+python -m imoveis_pg analyze data/anuncios.csv --output reports/coleta-01 --sep ";" --decimal ","
+```
+
+O [contrato de entrada](docs/dados.md) define as 20 colunas obrigatórias,
+unidades, campos opcionais e tratamento de valores inválidos. A instalação
+testada está registrada em requirements-tested.txt; para reproduzir suas versões,
+instale esse arquivo antes de instalar o pacote editável.
+
+## Resultados
+- observations.csv: histórico completo, valores originais, identidade e derivados.
+- snapshot.csv: observação mais recente de cada identidade de anúncio.
+- issues.csv: problemas de importação, identidade, coordenadas e extremos.
+- quality.json: ausências, tipos, contagens, estatísticas e limitações.
+- eda/: tabelas regionais, correlações com contagem de pares e seis gráficos PNG.
+- manifest.json: SHA-256 da entrada, parâmetros, versões, marca sintética e lista
+  de artefatos. Só é criado após a conclusão; sem ele, a saída está incompleta.
+
+O arquivo de entrada é preservado. Falhas de contrato retornam código 2.
+Saídas existentes nunca são sobrescritas. Se ocorrer falha de escrita, artefatos
+parciais podem permanecer sem manifesto; tente novamente em outra pasta.
+
+## Limitações
+Coordenadas são verificadas apenas contra limites globais, sem confirmar município.
+Localizações aproximadas são identificadas; não há geocodificação.
+A análise de aluguel usa somente locações com aluguel positivo. Contagens gerais
+incluem todas as finalidades. Identidades entre fontes podem representar o mesmo
+imóvel e exigem revisão. IPTU sem periodicidade ou custos ausentes não viram zero.
+Outliers permanecem na base; correlação não indica causalidade.
+Nenhum atributo derivado do aluguel deve entrar como preditor no futuro modelo.
+
+## Desenvolvimento
+[Escopo aprovado](docs/proposta-inicial.md), [plano](docs/superpowers/plans/2026-10-19-dados-eda.md)
+e [tarefas no Linear](docs/linear.md). Commits seguem Conventional Commits.
