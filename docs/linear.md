@@ -17,4 +17,4 @@
 - [IFP-13: Implementar mapa, filtros e simulador de aluguel](https://linear.app/ifpr/issue/IFP-13/implementar-mapa-filtros-e-simulador-de-aluguel)
 - [IFP-14: Validar fluxo completo e documentar limitações](https://linear.app/ifpr/issue/IFP-14/validar-fluxo-completo-e-documentar-limitacoes)
 
-Todas as tarefas foram criadas em Backlog. Dependências estão registradas no Linear; implementação aguarda revisão do plano e escolha do método de execução. Commits seguem Conventional Commits.
+IFP-5 a IFP-8 implementadas na branch codex/dados-eda; revisão final concluída, correção verificada e 39 testes passando. As demais tarefas permanecem no backlog. Execução direta aprovada. Dependências estão registradas no Linear; commits seguem Conventional Commits.
