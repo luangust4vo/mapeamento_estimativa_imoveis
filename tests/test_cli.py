@@ -53,3 +53,17 @@ def test_missing_input(tmp_path):
     result = run(tmp_path / "missing.csv", tmp_path / "out")
     assert result.returncode == 2
     assert "ler o CSV" in result.stderr
+
+def test_synthetic_history_keeps_global_warning(write_csv, listing, tmp_path):
+    from conftest import COLUMNS
+    source = write_csv([
+        dict(listing, data_coleta="2026-01-01", sintetico="sim"),
+        dict(listing, data_coleta="2026-10-19", sintetico=""),
+    ], fields=COLUMNS + ["sintetico"])
+    out = tmp_path / "out"
+    result = run(source, out)
+    assert result.returncode == 0, result.stderr
+    manifest = json.loads((out / "manifest.json").read_text())
+    assert manifest["dados_sinteticos"] is True
+    assert manifest["eda"]["dados_sinteticos"] is True
+    assert "DADOS SINTÉTICOS" in result.stdout

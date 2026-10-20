@@ -14,12 +14,12 @@ METRICS = {"aluguel": "Aluguel (R$/mês)", "custo_mensal_total": "Custo total (R
 CORRELATION = ["aluguel", "area_m2", "quartos", "banheiros", "vagas", "custo_mensal_total"]
 
 
-def analyze_listings(snapshot: pd.DataFrame, output_dir: Path) -> dict:
+def analyze_listings(snapshot: pd.DataFrame, output_dir: Path, *, synthetic_input: bool = False) -> dict:
     out = Path(output_dir)
     if out.exists() and (not out.is_dir() or any(out.iterdir())):
         raise ValueError("Diretório de EDA deve estar vazio.")
     out.mkdir(parents=True, exist_ok=True)
-    synthetic = bool(snapshot.get("sintetico", pd.Series(dtype=str)).map(normalize_text).isin(["sim", "true", "1"]).any())
+    synthetic = synthetic_input or bool(snapshot.get("sintetico", pd.Series(dtype=str)).map(normalize_text).isin(["sim", "true", "1"]).any())
     tag = " • DADOS SINTÉTICOS" if synthetic else ""
     result = {"tabelas": [], "graficos": [], "avisos": [], "dados_sinteticos": synthetic,
               "n_anuncios": len(snapshot)}

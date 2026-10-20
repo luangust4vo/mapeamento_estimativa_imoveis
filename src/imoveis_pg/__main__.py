@@ -9,7 +9,7 @@ import sys
 
 import pandas as pd
 
-from .data import DataContractError, load_listings
+from .data import DataContractError, load_listings, normalize_text
 from .quality import audit_listings
 
 
@@ -32,7 +32,9 @@ def main(argv=None) -> int:
         created = True
         # Import graphics only after validating input.
         from .eda import analyze_listings
-        eda = analyze_listings(quality.snapshot, args.output / "eda")
+        synthetic_input = bool(imported.rows.get("sintetico", pd.Series(dtype=str)).map(
+            normalize_text).isin(["sim", "true", "1"]).any())
+        eda = analyze_listings(quality.snapshot, args.output / "eda", synthetic_input=synthetic_input)
         quality.observations.to_csv(args.output / "observations.csv", index=False)
         quality.snapshot.to_csv(args.output / "snapshot.csv", index=False)
         pd.concat([imported.issues, quality.issues], ignore_index=True).to_csv(args.output / "issues.csv", index=False)
