@@ -9,6 +9,8 @@ import pytest
 from coleta_helpers import FakeSite, client, page_html
 from imoveis_pg.__main__ import main
 from imoveis_pg.coleta.plataforma import PORTALDEZ
+from geo_helpers import write_bairros_gpkg
+from imoveis_pg.geo.bairros import BAIRROS_URL, BairroResolver, load_bairros
 from imoveis_pg.geo.cnefe import CNEFE_URL, CnefeGeocoder, geocode_records, street_key
 from test_coleta_plataforma import portaldez_item
 
@@ -90,20 +92,40 @@ def test_geocode_records_fills_only_missing(geo):
     assert records[2]["latitude"] == ""
 
 
-def test_cli_collects_downloads_cnefe_once_and_geocodes(tmp_path):
-    site = FakeSite({PORTALDEZ.search_url(1): page_html([portaldez_item("A")]), CNEFE_URL: zipped()})
-    cache, cnefe = tmp_path / "raw", tmp_path / "ibge" / "cnefe.zip"
+def test_divergent_address_falls_back_to_declared_bairro(geo, tmp_path):
+    resolver = BairroResolver(load_bairros(write_bairros_gpkg(tmp_path / "b.gpkg")))
+    records = [  # CEP de outra região (Neves, ~3 km fora de Uvaranas) com bairro declarado Uvaranas
+        {"logradouro": "Rua Nova", "cep": "84000002", "bairro": "UVARANAS", "latitude": "", "longitude": ""},
+        # número exato nunca é substituído, mesmo fora do bairro declarado
+        {"logradouro": "Avenida Longa", "numero": "10", "bairro": "Uvaranas", "latitude": "", "longitude": ""},
+        # resultado coerente com o bairro é mantido
+        {"logradouro": "Rua Fictícia", "cep": "84000000", "bairro": "Uvaranas", "latitude": "", "longitude": ""},
+    ]
+    counts = geocode_records(records, geo, resolver)
+    assert counts == {"bairro_por_divergencia": 1, "numero": 1, "rua_cep": 1}
+    assert records[0]["latitude"] == "-25,102" and "divergente" in records[0]["origem_localizacao"]
+    assert records[1]["latitude"] == "-25,05" and records[2]["precisao_localizacao"] == "aproximada"
+
+
+def test_cli_collects_downloads_references_once_and_geocodes(tmp_path):
+    gpkg_bytes = write_bairros_gpkg(tmp_path / "src.gpkg").read_bytes()
+    site = FakeSite({PORTALDEZ.search_url(1): page_html([portaldez_item("A")]), CNEFE_URL: zipped(),
+                     BAIRROS_URL: gpkg_bytes})
+    cache, cnefe, bairros = tmp_path / "raw", tmp_path / "ibge" / "cnefe.zip", tmp_path / "ibge" / "b.gpkg"
     PORTALDEZ.collect(client(site, cache_dir=cache))
     client(site).download(CNEFE_URL, cnefe)
-    assert cnefe.exists() and site.calls.count(CNEFE_URL) == 1
+    client(site).download(BAIRROS_URL, bairros)
+    client(site).download(CNEFE_URL, cnefe)
+    assert site.calls.count(CNEFE_URL) == 1 and site.calls.count(BAIRROS_URL) == 1
     out = tmp_path / "portaldez.csv"
     code = main(["collect", "portaldez", "--output", str(out), "--cache-dir", str(cache),
-                 "--cnefe", str(cnefe), "--offline"])
+                 "--cnefe", str(cnefe), "--bairros", str(bairros), "--offline"])
     assert code == 0
     row = pd.read_csv(out, sep=";", dtype=str).iloc[0]
     assert row.latitude == "-25,102" and row.precisao_localizacao == "exata"
     manifest = json.loads((tmp_path / "portaldez.manifest.json").read_text(encoding="utf-8"))
     assert manifest["geocodificacao"]["metodos"] == {"numero": 1} and manifest["requisicoes"] == 0
+    assert manifest["geocodificacao"]["bairros"]["sha256"]
 
 
 def test_cli_offline_without_cnefe_fails_clearly(tmp_path, capsys):

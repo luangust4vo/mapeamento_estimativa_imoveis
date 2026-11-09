@@ -15,6 +15,7 @@ from .quality import audit_listings
 from .coleta import SOURCES
 from .coleta.contrato import merge_contract_csvs, write_contract_csv
 from .coleta.http import USER_AGENT, ColetaError, PoliteClient
+from .geo.bairros import BAIRROS_PATH, BAIRROS_URL, BairroResolver, assign_bairros, load_bairros
 from .geo.cnefe import CNEFE_PATH, CNEFE_URL, CnefeGeocoder, geocode_records
 
 
@@ -26,6 +27,8 @@ def main(argv=None) -> int:
     analyze.add_argument("--output", required=True, type=Path)
     analyze.add_argument("--sep", default=";")
     analyze.add_argument("--decimal", choices=[",", "."], default=",")
+    analyze.add_argument("--bairros", type=Path,
+                         help=f"GeoPackage de bairros do IBGE para unificar bairros (ex.: {BAIRROS_PATH}).")
     collect = sub.add_parser("collect", help="Coletar anúncios públicos de uma imobiliária.")
     collect.add_argument("source", choices=sorted(SOURCES))
     collect.add_argument("--output", required=True, type=Path, help="CSV novo no contrato de dados.")
@@ -35,6 +38,8 @@ def main(argv=None) -> int:
     collect.add_argument("--offline", action="store_true", help="Usar apenas o cache, sem rede.")
     collect.add_argument("--cnefe", type=Path, default=CNEFE_PATH,
                          help="Zip do CNEFE 2022 de Ponta Grossa para geocodificar (baixado se ausente).")
+    collect.add_argument("--bairros", type=Path, default=BAIRROS_PATH,
+                         help="GeoPackage de bairros do IBGE para conferir a geocodificação (baixado se ausente).")
     merge = sub.add_parser("merge", help="Unir CSVs de coletores em uma única base.")
     merge.add_argument("inputs", nargs="+", type=Path)
     merge.add_argument("--output", required=True, type=Path)
@@ -56,7 +61,15 @@ def main(argv=None) -> int:
         if args.output.exists():
             raise DataContractError("A pasta de saída já existe; escolha uma pasta nova.")
         imported = load_listings(args.input, sep=args.sep, decimal=args.decimal)
-        quality = audit_listings(imported.rows)
+        rows, bairro_issues, bairros_info = imported.rows, imported.issues.iloc[0:0], None
+        if args.bairros:
+            if not args.bairros.exists():
+                raise DataContractError(f"Arquivo de bairros não encontrado: {args.bairros} (fonte: {BAIRROS_URL})")
+            rows, bairro_issues = assign_bairros(rows, BairroResolver(load_bairros(args.bairros)))
+            bairros_info = {"arquivo": str(args.bairros), "sha256": _sha256(args.bairros),
+                            "metodos": rows.bairro_metodo.value_counts().to_dict(),
+                            "conflitos": int(rows.bairro_conflito.sum())}
+        quality = audit_listings(rows)
         args.output.mkdir(parents=True, exist_ok=False)
         created = True
         # Import graphics only after validating input.
@@ -66,7 +79,7 @@ def main(argv=None) -> int:
         eda = analyze_listings(quality.snapshot, args.output / "eda", synthetic_input=synthetic_input)
         quality.observations.to_csv(args.output / "observations.csv", index=False)
         quality.snapshot.to_csv(args.output / "snapshot.csv", index=False)
-        pd.concat([imported.issues, quality.issues], ignore_index=True).to_csv(args.output / "issues.csv", index=False)
+        pd.concat([imported.issues, bairro_issues, quality.issues], ignore_index=True).to_csv(args.output / "issues.csv", index=False)
         quality.summary["valores_invalidos_importacao"] = len(imported.issues)
         quality.summary["registros_rejeitados_estruturalmente"] = 0
         (args.output / "quality.json").write_text(
@@ -75,7 +88,8 @@ def main(argv=None) -> int:
             "source_sha256": imported.source_sha256,
             "created_at": datetime.now(timezone.utc).isoformat(),
             "parameters": {"sep": args.sep, "decimal": args.decimal},
-            "versions": {"python": platform.python_version(), **{name: version(name) for name in ["imoveis-pg", "pandas", "numpy", "matplotlib"]}},
+            "bairros_oficiais": bairros_info,
+            "versions": {"python": platform.python_version(), **{name: version(name) for name in ["imoveis-pg", "pandas", "numpy", "matplotlib", "geopandas"]}},
             "dados_sinteticos": eda["dados_sinteticos"], "eda": eda,
             "eda_directory": "eda", "status": "complete",
         }
@@ -91,6 +105,10 @@ def main(argv=None) -> int:
     if manifest["dados_sinteticos"]:
         print("DADOS SINTÉTICOS: resultados demonstrativos, sem validade de mercado.")
     return 0
+
+
+def _sha256(path: Path) -> str:
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
 
 def _collect(args) -> int:
@@ -115,12 +133,14 @@ def _collect(args) -> int:
     if any(not (r.get("latitude") and r.get("longitude")) for r in result.records):
         try:
             cnefe = client.download(CNEFE_URL, args.cnefe)
+            bairros = client.download(BAIRROS_URL, args.bairros)
         except ColetaError as exc:
-            print(f"Erro ao obter o CNEFE para geocodificar: {exc}", file=sys.stderr)
+            print(f"Erro ao obter CNEFE ou bairros do IBGE para geocodificar: {exc}", file=sys.stderr)
             return 2
-        geocoding = {"fonte": "IBGE CNEFE 2022", "arquivo": str(cnefe),
-                     "sha256": hashlib.sha256(cnefe.read_bytes()).hexdigest(),
-                     "metodos": geocode_records(result.records, CnefeGeocoder.from_zip(cnefe))}
+        resolver = BairroResolver(load_bairros(bairros))
+        geocoding = {"fonte": "IBGE CNEFE 2022", "arquivo": str(cnefe), "sha256": _sha256(cnefe),
+                     "bairros": {"arquivo": str(bairros), "sha256": _sha256(bairros)},
+                     "metodos": geocode_records(result.records, CnefeGeocoder.from_zip(cnefe), resolver)}
     write_contract_csv(result.records, args.output)
     manifest = {
         "fonte": module.FONTE, "url_base": module.BASE_URL, "coletor": args.source,

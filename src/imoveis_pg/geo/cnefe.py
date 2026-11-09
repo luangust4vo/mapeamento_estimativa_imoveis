@@ -23,6 +23,7 @@ CNEFE_PATH = Path("data/raw/ibge/4119905_PONTA_GROSSA.zip")
 # NV_GEO_COORD 1-3: coordenada do próprio endereço (original, ajustada ou estimada pelo IBGE).
 ADDRESS_LEVELS = {"1", "2", "3"}
 MAX_NUMBER_GAP = 100
+MAX_BAIRRO_DIVERGENCE_M = 1000
 STREET_TYPES = {"rua", "r", "avenida", "av", "travessa", "tv", "trav", "alameda", "al", "rodovia", "rod",
                 "estrada", "est", "praca", "pca", "largo", "beco", "viela", "servidao", "via", "caminho"}
 ABBREVIATIONS = {"dr": "doutor", "dra": "doutora", "cel": "coronel", "gen": "general", "pe": "padre",
@@ -130,19 +131,32 @@ class CnefeGeocoder:
         return None
 
 
-def geocode_records(records: list[dict], geocoder: CnefeGeocoder) -> dict[str, int]:
-    """Preenche coordenadas ausentes nos registros; devolve contagem por método."""
+def geocode_records(records: list[dict], geocoder: CnefeGeocoder, resolver=None,
+                    max_divergence_m: float = MAX_BAIRRO_DIVERGENCE_M) -> dict[str, int]:
+    """Preenche coordenadas ausentes nos registros; devolve contagem por método.
+
+    Com ``resolver`` (bairros oficiais), um resultado que não veio do número exato
+    e cai a mais de ``max_divergence_m`` do bairro oficial declarado é tratado como
+    endereço inconsistente (ex.: CEP de outra região) e recua para o bairro declarado.
+    """
     counts: dict[str, int] = {}
     for record in records:
         if record.get("latitude") and record.get("longitude"):
             continue
+        official = resolver.by_name(record.get("bairro")) if resolver else None
+        bairro = official or record.get("bairro")
         match = geocoder.locate(street=record.get("logradouro"), number=record.get("numero"),
-                                cep=record.get("cep"), bairro=record.get("bairro"))
+                                cep=record.get("cep"), bairro=bairro)
         method = match.metodo if match else "nao_localizado"
+        if (match and official and match.metodo not in {"numero", "bairro"}
+                and resolver.distance_m(match.latitude, match.longitude, official) > max_divergence_m):
+            match = geocoder.locate(bairro=bairro)
+            method = "bairro_por_divergencia" if match else "nao_localizado"
         counts[method] = counts.get(method, 0) + 1
         if match:
             record["latitude"] = format_number(match.latitude, decimals=7)
             record["longitude"] = format_number(match.longitude, decimals=7)
             record["precisao_localizacao"] = match.precisao
-            record["origem_localizacao"] = f"IBGE CNEFE 2022 ({match.metodo}, {match.pontos} endereços)"
+            note = "; endereço divergente do bairro declarado" if method == "bairro_por_divergencia" else ""
+            record["origem_localizacao"] = f"IBGE CNEFE 2022 ({match.metodo}, {match.pontos} endereços{note})"
     return counts

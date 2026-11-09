@@ -116,7 +116,8 @@ def audit_listings(rows: pd.DataFrame) -> QualityResult:
         "conflitos_identidade": sum(i[2] == "conflito_identidade" for i in issues),
         "coordenadas_validas": int(snapshot.coordenadas_validas.sum()),
         "elegiveis_preliminares": int(snapshot.elegivel_preliminar.sum()),
-        "regioes": snapshot.bairro_normalizado.replace("", "Bairro não informado").value_counts().to_dict(),
+        "regioes": (snapshot.bairro_oficial.fillna("Bairro não resolvido") if "bairro_oficial" in snapshot
+                    else snapshot.bairro_normalizado.replace("", "Bairro não informado")).value_counts().to_dict(),
         "estatisticas": json.loads(numeric.describe().to_json()) if len(numeric.columns) else {},
         "avisos": ["Validação municipal pendente; coordenadas válidas globalmente não comprovam localização em Ponta Grossa.",
                    "Snapshot conta identidades de anúncios; candidatos entre fontes ainda podem representar o mesmo imóvel.",

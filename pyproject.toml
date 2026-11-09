@@ -7,7 +7,7 @@ name = "imoveis-pg"
 version = "0.1.0"
 description = "Qualidade de dados e EDA de anúncios imobiliários de Ponta Grossa"
 requires-python = ">=3.12"
-dependencies = ["pandas>=2.2,<4", "numpy>=1.26,<3", "matplotlib>=3.11,<4"]
+dependencies = ["pandas>=2.2,<4", "numpy>=1.26,<3", "matplotlib>=3.11,<4", "geopandas>=1.0,<2"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8,<10"]
