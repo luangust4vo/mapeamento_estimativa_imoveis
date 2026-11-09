@@ -24,9 +24,14 @@ python -m imoveis_pg analyze data/anuncios.csv --output reports/coleta-01 --sep 
 
 ## Coletar dados reais
 ```bash
-python -m imoveis_pg collect torreblanca --output data/torreblanca_2026-11-09.csv
-python -m imoveis_pg analyze data/torreblanca_2026-11-09.csv --output reports/torreblanca-2026-11-09
+for f in torreblanca portaldez granada vilanova; do
+  python -m imoveis_pg collect $f --output data/${f}_2026-11-09.csv
+done
+python -m imoveis_pg merge data/*_2026-11-09.csv --output data/base_2026-11-09.csv
+python -m imoveis_pg analyze data/base_2026-11-09.csv --output reports/base-2026-11-09
 ```
+Anúncios sem coordenadas são geocodificados localmente com o CNEFE 2022 do IBGE,
+baixado automaticamente na primeira coleta.
 Fontes, conduta da coleta, privacidade e limitações estão em [docs/coleta.md](docs/coleta.md).
 Os dados coletados ficam em data/ e não são versionados.
 
