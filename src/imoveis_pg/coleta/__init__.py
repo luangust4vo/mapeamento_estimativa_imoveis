@@ -1,4 +1,9 @@
 """Coletores de anúncios públicos de imobiliárias de Ponta Grossa."""
-from . import torreblanca
+from . import plataforma, torreblanca
 
-SOURCES = {"torreblanca": torreblanca}
+SOURCES = {
+    "torreblanca": torreblanca,
+    "portaldez": plataforma.PORTALDEZ,
+    "granada": plataforma.GRANADA,
+    "vilanova": plataforma.VILANOVA,
+}

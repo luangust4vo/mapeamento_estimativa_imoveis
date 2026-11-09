@@ -7,6 +7,7 @@ import pytest
 from imoveis_pg.__main__ import main
 from imoveis_pg.coleta import torreblanca as tb
 from imoveis_pg.coleta.contrato import format_number, write_contract_csv
+from coleta_helpers import FakeSite, client, page_html
 from imoveis_pg.coleta.http import ColetaError, PoliteClient, Response
 from imoveis_pg.data import load_listings
 from imoveis_pg.quality import audit_listings
@@ -26,32 +27,6 @@ def prop(ref, **attrs):
     return {"reference": ref, "created_at": "2026-10-01T10:00:00.000Z",
             "updated_at": "2026-11-01T10:00:00.000Z", "title": "Casa", "description": "Ligue 9999-9999",
             "attributes": {k: v for k, v in base.items() if v is not None}}
-
-
-def page_html(props, page=1, pages=1, total=None):
-    data = {"props": {"pageProps": {"properties": props, "totalProperties": total if total is not None else len(props),
-                                    "pageInfo": {"page": page, "take": 20, "total": pages}}}}
-    return f'<html><script id="__NEXT_DATA__" type="application/json">{json.dumps(data)}</script></html>'
-
-
-class FakeSite:
-    def __init__(self, pages, robots="User-agent: *\nAllow: /\n"):
-        self.pages, self.robots, self.calls = pages, robots, []
-
-    def __call__(self, url, headers, timeout):
-        self.calls.append(url)
-        assert "imoveis-pg" in headers["User-Agent"]
-        if url.endswith("/robots.txt"):
-            return Response(200, self.robots.encode()) if self.robots is not None else Response(404, b"")
-        if url in self.pages:
-            value = self.pages[url]
-            return value if isinstance(value, Response) else Response(200, value.encode())
-        return Response(404, b"")
-
-
-def client(site, **kwargs):
-    kwargs.setdefault("sleep", lambda s: None)
-    return PoliteClient(opener=site, **kwargs)
 
 
 def test_record_maps_contract_and_drops_personal_data():

@@ -1,5 +1,6 @@
-"""python -m imoveis_pg analyze INPUT --output OUTPUT | collect FONTE --output CSV."""
+"""python -m imoveis_pg analyze | collect | merge (use --help em cada comando)."""
 import argparse
+import hashlib
 from datetime import datetime, timezone
 from importlib.metadata import version
 import json
@@ -12,8 +13,9 @@ import pandas as pd
 from .data import DataContractError, load_listings, normalize_text
 from .quality import audit_listings
 from .coleta import SOURCES
-from .coleta.contrato import write_contract_csv
+from .coleta.contrato import merge_contract_csvs, write_contract_csv
 from .coleta.http import USER_AGENT, ColetaError, PoliteClient
+from .geo.cnefe import CNEFE_PATH, CNEFE_URL, CnefeGeocoder, geocode_records
 
 
 def main(argv=None) -> int:
@@ -31,9 +33,24 @@ def main(argv=None) -> int:
     collect.add_argument("--delay", type=float, default=3.0, help="Segundos entre requisições (mín. 1).")
     collect.add_argument("--max-pages", type=int)
     collect.add_argument("--offline", action="store_true", help="Usar apenas o cache, sem rede.")
+    collect.add_argument("--cnefe", type=Path, default=CNEFE_PATH,
+                         help="Zip do CNEFE 2022 de Ponta Grossa para geocodificar (baixado se ausente).")
+    merge = sub.add_parser("merge", help="Unir CSVs de coletores em uma única base.")
+    merge.add_argument("inputs", nargs="+", type=Path)
+    merge.add_argument("--output", required=True, type=Path)
     args = parser.parse_args(argv)
     if args.command == "collect":
         return _collect(args)
+    if args.command == "merge":
+        try:
+            if args.output.exists():
+                raise ValueError("o CSV de saída já existe; escolha outro nome.")
+            total = merge_contract_csvs(args.inputs, args.output)
+        except (OSError, ValueError) as exc:
+            print(f"Erro: {exc}", file=sys.stderr)
+            return 2
+        print(f"{total} anúncios de {len(args.inputs)} arquivos gravados em {args.output}")
+        return 0
     created = False
     try:
         if args.output.exists():
@@ -94,6 +111,16 @@ def _collect(args) -> int:
     if not result.records:
         print("Erro: nenhum anúncio coletado.", file=sys.stderr)
         return 2
+    geocoding = None
+    if any(not (r.get("latitude") and r.get("longitude")) for r in result.records):
+        try:
+            cnefe = client.download(CNEFE_URL, args.cnefe)
+        except ColetaError as exc:
+            print(f"Erro ao obter o CNEFE para geocodificar: {exc}", file=sys.stderr)
+            return 2
+        geocoding = {"fonte": "IBGE CNEFE 2022", "arquivo": str(cnefe),
+                     "sha256": hashlib.sha256(cnefe.read_bytes()).hexdigest(),
+                     "metodos": geocode_records(result.records, CnefeGeocoder.from_zip(cnefe))}
     write_contract_csv(result.records, args.output)
     manifest = {
         "fonte": module.FONTE, "url_base": module.BASE_URL, "coletor": args.source,
@@ -102,6 +129,7 @@ def _collect(args) -> int:
         "total_declarado_pelo_site": result.declared_total, "anuncios": len(result.records),
         "descartados": result.skipped, "requisicoes": client.requests_made,
         "paginas_do_cache": client.cache_hits, "cache": str(cache_dir),
+        "geocodificacao": geocoding,
         "privacidade": "Dados de corretores, descrições, fotos e contatos não são copiados.",
     }
     manifest_path = args.output.with_name(args.output.stem + ".manifest.json")

@@ -89,6 +89,32 @@ class PoliteClient:
             self._robots[origin] = parser
         return self._robots[origin].can_fetch(self.user_agent, url)
 
+    def _fetch(self, url: str) -> bytes:
+        if not self._allowed(url):
+            raise ColetaError(f"robots.txt não permite coletar {url}")
+        for attempt in range(self.retries + 1):
+            response = self._request(url)
+            if response.status == 200:
+                return response.body
+            if response.status not in RETRY_STATUS or attempt == self.retries:
+                raise ColetaError(f"HTTP {response.status} ao buscar {url}")
+            self._sleep(self.delay * 2 ** (attempt + 1))
+        raise AssertionError("inalcançável")
+
+    def download(self, url: str, path: Path) -> Path:
+        """Baixa um arquivo binário uma única vez; se já existir, não acessa a rede."""
+        path = Path(path)
+        if path.exists():
+            return path
+        if self.offline:
+            raise ColetaError(f"Modo offline e arquivo ausente: {path}")
+        body = self._fetch(url)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        partial = path.with_name(path.name + ".part")
+        partial.write_bytes(body)
+        partial.replace(path)
+        return path
+
     def get(self, url: str) -> str:
         cached = self._cache_path(url)
         if cached and cached.exists():
@@ -96,16 +122,7 @@ class PoliteClient:
             return cached.read_text(encoding="utf-8")
         if self.offline:
             raise ColetaError(f"Modo offline e página ausente do cache: {url}")
-        if not self._allowed(url):
-            raise ColetaError(f"robots.txt não permite coletar {url}")
-        for attempt in range(self.retries + 1):
-            response = self._request(url)
-            if response.status == 200:
-                break
-            if response.status not in RETRY_STATUS or attempt == self.retries:
-                raise ColetaError(f"HTTP {response.status} ao buscar {url}")
-            self._sleep(self.delay * 2 ** (attempt + 1))
-        text = response.body.decode("utf-8", "replace")
+        text = self._fetch(url).decode("utf-8", "replace")
         if cached:
             cached.parent.mkdir(parents=True, exist_ok=True)
             cached.write_text(text, encoding="utf-8")
