@@ -46,3 +46,11 @@ residencial para Casa; uso comercial explícito é excluído. A marca não autor
 treinamento: município, identidades e cobertura ainda precisam ser validados.
 Latitude [-90,90] e longitude [-180,180] são apenas verificações globais.
 Nenhum centroide ou ponto aproximado é promovido a coordenada exata.
+
+## Bairros oficiais
+Com `analyze --bairros`, a base recebe `bairro_oficial` (um dos 16 bairros da malha do Censo 2022 do IBGE),
+`bairro_metodo` e `bairro_conflito`. Coordenada exata dentro de um bairro (tolerância de 300 m) define o bairro
+(`poligono`); sem coordenada exata vale o nome declarado, quando for oficial após remover acento, caixa e pontuação
+(`nome`); nomes não oficiais usam o polígono da coordenada aproximada (`poligono_aproximado`).
+Nome oficial e polígono discordantes geram `bairro_divergente` em issues.csv. A coluna `bairro` original é preservada.
+Tabelas regionais e `regioes` do quality.json passam a usar `bairro_oficial`.

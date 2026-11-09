@@ -20,11 +20,12 @@ python -m imoveis_pg collect portaldez   --output data/portaldez_AAAA-MM-DD.csv
 python -m imoveis_pg collect granada     --output data/granada_AAAA-MM-DD.csv
 python -m imoveis_pg collect vilanova    --output data/vilanova_AAAA-MM-DD.csv
 python -m imoveis_pg merge data/*_AAAA-MM-DD.csv --output data/base_AAAA-MM-DD.csv
-python -m imoveis_pg analyze data/base_AAAA-MM-DD.csv --output reports/base-AAAA-MM-DD
+python -m imoveis_pg analyze data/base_AAAA-MM-DD.csv --output reports/base-AAAA-MM-DD \
+  --bairros data/raw/ibge/PR_bairros_CD2022.gpkg
 ```
 Cada coleta gera o CSV no [contrato de dados](dados.md) e um `.manifest.json` com a fonte, a data,
 o user-agent, o número de requisições, os anúncios descartados e os métodos de geocodificação.
-Opções: `--delay` (padrão 3 s, mínimo 1), `--max-pages`, `--cache-dir`, `--offline` e `--cnefe`.
+Opções: `--delay` (padrão 3 s, mínimo 1), `--max-pages`, `--cache-dir`, `--offline`, `--cnefe` e `--bairros`.
 `merge` só concatena os arquivos; a deduplicação entre fontes é sinalizada pelo `analyze`.
 
 ## Conduta
@@ -45,7 +46,8 @@ Portal Dez, Granada e Vila Nova não publicam coordenadas. Os serviços de geoco
 o **Cadastro Nacional de Endereços para Fins Estatísticos (CNEFE) do Censo 2022**, dado aberto do IBGE com
 178.567 endereços de Ponta Grossa (CEP, logradouro, número e coordenadas). O arquivo
 `4119905_PONTA_GROSSA.zip` (4,1 MB, SHA-256 `3524d466…a0d1`) é baixado uma vez para `data/raw/ibge/`
-pelo próprio `collect`, e a busca é local.
+pelo próprio `collect`, e a busca é local. O `collect` também baixa a malha de bairros do Censo 2022
+(`PR_bairros_CD2022.gpkg`, 2,4 MB, SHA-256 `9f018a01…b777`) para conferir o resultado.
 
 Cascata, do mais ao menos preciso (`origem_localizacao` registra o método e o número de endereços usados):
 1. `numero`: logradouro + número exato (dentro do CEP, se houver) → `precisao_localizacao=exata`.
@@ -59,6 +61,10 @@ Do 2 em diante a precisão é `aproximada`. Só são usados endereços com coord
 (`NV_GEO_COORD` 1 a 3). Logradouros são comparados sem acento, pontuação e tipo (Rua/Av.), e abreviações
 de títulos são expandidas (Dr. → Doutor). Não há correspondência aproximada de nomes: uma rua ausente do
 CNEFE cai para CEP ou bairro em vez de ser trocada por outra parecida.
+**Conferência com o bairro declarado:** se o resultado não veio do número exato e cai a mais de 1 km do
+polígono do bairro oficial declarado, o endereço é tratado como inconsistente e a geocodificação recua para o
+bairro declarado (`bairro_por_divergencia`). Caso real: anúncios em "Cará-Cará" com CEP 84062240, que no CNEFE
+pertence à Rua Michel Laidane, no Sabará/Chapada, a 7,7 km do bairro declarado.
 CEPs com sufixo 900–999 (agências, caixas postais e grandes usuários dos Correios) são ignorados: o Portal Dez usa
 `84001970` como CEP genérico em anúncios de bairros diferentes.
 
@@ -87,10 +93,20 @@ Parte da diferença pode vir da própria coordenada do anúncio, que também nã
 | endereço | logradouro + número | `street` / `address-street` + `number` / `address-number` | Também em `logradouro`, `numero`, `cep` |
 | extras | `caracteristicas`, `publicado_em`, `atualizado_em` | idem, `seguro_incendio`, `fundo_conservacao`, `ano_construcao` | |
 
+## Bairros oficiais
+A malha de bairros do IBGE (Censo 2022) define **16 bairros** em Ponta Grossa: Boa Vista, Cara Cara, Centro,
+Chapada, Colônia Dona Luíza, Contorno, Estrela, Jardim Carvalho, Neves, Nova Rússia, Oficinas, Olarias, Órfãs,
+Ronda, Uvaranas e Vila Ildemira. As regras de atribuição estão em [dados.md](dados.md#bairros-oficiais).
+Na base de 2026-11-09, os anúncios traziam 37 grafias (ex.: "CARÁ-CARÁ", "Cará- Cará", "Cará-cará"), mais
+"Vila Estrela", "Vila Palmeirinha", "Periquitos" e "Colônia Dona Luzia". Todos os 236 foram atribuídos:
+126 pelo polígono (coordenada exata), 108 pelo nome e 2 pelo polígono de coordenada aproximada.
+Houve 22 divergências entre nome e polígono (18 com coordenada exata, mediana de ~350 m da fronteira do bairro
+declarado, típico de imobiliárias que usam o nome do bairro vizinho).
+
 ## Base de 2026-11-09
 236 anúncios (Torre Blanca 115, Portal Dez 109, Vila Nova 8, Granada 4), dos quais **208 casas residenciais
 elegíveis**, em 21 bairros. Aluguel mediano de R$ 2.050 (Q1 R$ 1.300; Q3 R$ 4.575). Localização: 113 exatas e
-94 aproximadas, mais 1 anúncio sem localização.
+95 aproximadas; após a conferência com os bairros, nenhum anúncio ficou sem localização.
 Um mesmo imóvel apareceu no Portal Dez e na Torre Blanca e foi sinalizado como possível duplicata.
 
 ## Limitações conhecidas
@@ -100,7 +116,5 @@ Um mesmo imóvel apareceu no Portal Dez e na Torre Blanca e foi sinalizado como 
   Provavelmente parte das suítes ausentes significa zero, mas nada é presumido; a imputação será decidida no treino.
 - O filtro "Casa/Sobrado" da Torre Blanca inclui 20 imóveis de uso comercial, e o Portal Dez tem 8.
 - Ruas e CEPs criados depois do Censo 2022 não estão no CNEFE e caem para bairro (erro de quilômetros).
-- Um anúncio do Portal Dez (endereço genérico, CEP especial e bairro "Colônia Dona Luzia", quando o oficial é Luiza) ficou sem
-  localização e permanece sinalizado.
-- Os bairros vêm grafados como cada site escreve ("CARÁ-CARÁ", "Cará-Cará"); a unificação com os nomes oficiais ainda é necessária.
+- 23 pontos geocodificados (9 por divergência e 14 sem rua ou CEP no CNEFE) estão no centro do bairro, com erro de quilômetros.
 - Quatro imobiliárias não representam o mercado municipal; há concentração em alguns bairros.

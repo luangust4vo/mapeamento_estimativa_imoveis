@@ -54,7 +54,9 @@ python -m imoveis_pg analyze data/<fonte>_AAAA-MM-DD.csv --output reports/<fonte
 - Veja `geocodificacao.metodos` no manifesto: muitos `bairro` ou `nao_localizado` pedem investigação
   (grafia de bairro, CEP genérico, abreviação de rua não expandida).
 - Una as fontes com `python -m imoveis_pg merge data/*_AAAA-MM-DD.csv --output data/base_AAAA-MM-DD.csv`
-  e rode o `analyze` também na base unificada, onde aparecem as duplicatas entre fontes.
+  e rode o `analyze --bairros data/raw/ibge/PR_bairros_CD2022.gpkg` na base unificada, onde aparecem as
+  duplicatas entre fontes e as divergências de bairro (`bairro_divergente` em issues.csv).
+- Grafias novas de bairro que não casam com o nome oficial (como "Dona Luzia") vão para `ALIASES` em `geo/bairros.py`.
 - Revise `issues.csv`, as ausências do `quality.json` e o gráfico `eda/inspecao_espacial.png`
   (os pontos devem formar a mancha urbana de Ponta Grossa, lat ≈ -25,02 a -25,17; lon ≈ -50,09 a -50,24).
 - Atualize a tabela de fontes, o mapeamento de campos e as limitações em `docs/coleta.md`.

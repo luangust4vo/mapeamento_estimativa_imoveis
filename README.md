@@ -28,10 +28,13 @@ for f in torreblanca portaldez granada vilanova; do
   python -m imoveis_pg collect $f --output data/${f}_2026-11-09.csv
 done
 python -m imoveis_pg merge data/*_2026-11-09.csv --output data/base_2026-11-09.csv
-python -m imoveis_pg analyze data/base_2026-11-09.csv --output reports/base-2026-11-09
+python -m imoveis_pg analyze data/base_2026-11-09.csv --output reports/base-2026-11-09 \
+  --bairros data/raw/ibge/PR_bairros_CD2022.gpkg
 ```
-Anúncios sem coordenadas são geocodificados localmente com o CNEFE 2022 do IBGE,
-baixado automaticamente na primeira coleta.
+Anúncios sem coordenadas são geocodificados localmente com o CNEFE 2022 do IBGE.
+Com `--bairros`, cada anúncio recebe um dos 16 bairros oficiais (malha do Censo 2022),
+usados nas tabelas e gráficos regionais. Os dois arquivos do IBGE são baixados
+automaticamente na primeira coleta que precisar geocodificar.
 Fontes, conduta da coleta, privacidade e limitações estão em [docs/coleta.md](docs/coleta.md).
 Os dados coletados ficam em data/ e não são versionados.
 
