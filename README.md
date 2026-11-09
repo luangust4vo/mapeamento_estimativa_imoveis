@@ -1,8 +1,8 @@
 # Aluguéis de casas em Ponta Grossa
 
-Primeira entrega: importação rastreável de CSV, relatório de qualidade e análise
-exploratória. O mapa interativo, DBSCAN e simulador preditivo são etapas futuras.
-Esta versão não estima aluguéis e não inclui anúncios reais.
+Importação rastreável de CSV, relatório de qualidade, análise exploratória e
+coleta automatizada de anúncios públicos de imobiliárias de Ponta Grossa.
+O mapa interativo, os modelos e o simulador são etapas futuras.
 
 ## Executar
 Python 3.12 ou superior. Na raiz deste repositório:
@@ -21,6 +21,14 @@ identificados no manifesto e nos gráficos. Para outro CSV:
 ```bash
 python -m imoveis_pg analyze data/anuncios.csv --output reports/coleta-01 --sep ";" --decimal ","
 ```
+
+## Coletar dados reais
+```bash
+python -m imoveis_pg collect torreblanca --output data/torreblanca_2026-11-09.csv
+python -m imoveis_pg analyze data/torreblanca_2026-11-09.csv --output reports/torreblanca-2026-11-09
+```
+Fontes, conduta da coleta, privacidade e limitações estão em [docs/coleta.md](docs/coleta.md).
+Os dados coletados ficam em data/ e não são versionados.
 
 O [contrato de entrada](docs/dados.md) define as 20 colunas obrigatórias,
 unidades, campos opcionais e tratamento de valores inválidos. A instalação
