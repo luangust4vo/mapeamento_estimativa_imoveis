@@ -51,7 +51,16 @@ def main(argv=None) -> int:
     classify.add_argument("--seed", type=int, default=42)
     classify.add_argument("--repeticoes", type=int, default=0,
                           help="Repetir o experimento com N sementes (0..N-1) para medir estabilidade.")
+    cluster = sub.add_parser("cluster", help="Agrupar perfis de casas e concentrações espaciais.")
+    cluster.add_argument("input", type=Path, help="Base unificada no contrato de dados.")
+    cluster.add_argument("--output", required=True, type=Path)
+    cluster.add_argument("--bairros", type=Path, default=BAIRROS_PATH)
+    cluster.add_argument("--eps-m", type=float, default=600, help="Raio do DBSCAN geográfico, em metros.")
+    cluster.add_argument("--min-samples", type=int, default=6, help="Mínimo de anúncios por concentração.")
+    cluster.add_argument("--seed", type=int, default=42)
     args = parser.parse_args(argv)
+    if args.command == "cluster":
+        return _cluster(args)
     if args.command == "classify":
         return _classify(args)
     if args.command == "collect":
@@ -119,6 +128,43 @@ def main(argv=None) -> int:
 
 def _sha256(path: Path) -> str:
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def _cluster(args) -> int:
+    from .modelagem.agrupamento import cluster_profiles, cluster_space
+    from .modelagem.dataset import build_dataset, prepare_snapshot
+    from .modelagem.relatorio_agrupamento import ALGORITHM_LABELS, write_cluster_report
+
+    try:
+        if args.output.exists():
+            raise ValueError("a pasta de saída já existe; escolha uma pasta nova.")
+        if not args.bairros.exists():
+            raise ValueError(f"arquivo de bairros não encontrado: {args.bairros} (fonte: {BAIRROS_URL})")
+        data = build_dataset(prepare_snapshot(args.input, args.bairros))
+        if len(data.X) < 30:
+            raise ValueError(f"apenas {len(data.X)} casas elegíveis; insuficiente para agrupar.")
+        profiles = cluster_profiles(data, seed=args.seed)
+        spatial = cluster_space(data, eps_m=args.eps_m, min_samples=args.min_samples)
+        manifest = write_cluster_report(profiles, spatial, data, args.output, bairros=load_bairros(args.bairros),
+                                        manifest_extra={
+            "entrada": str(args.input), "entrada_sha256": _sha256(args.input), "semente": args.seed,
+            "gerado_em": datetime.now(timezone.utc).isoformat(),
+            "versoes": {"python": platform.python_version(),
+                        **{n: version(n) for n in ["imoveis-pg", "scikit-learn", "pandas", "numpy"]}}})
+    except (DataContractError, OSError, ValueError) as exc:
+        print(f"Erro: {exc}", file=sys.stderr)
+        return 2
+    print(f"Perfis ({len(profiles.table)} casas com área, quartos e banheiros):")
+    for name, chosen in profiles.chosen.items():
+        config = f"k={int(chosen['k'])}" if "k" in chosen else f"eps={chosen['eps']:.1f}, min_samples={int(chosen['min_samples'])}"
+        print(f"  {ALGORITHM_LABELS[name]:20s} {config:24s} silhueta {chosen['silhueta']:.3f}  "
+              f"estabilidade {chosen['estabilidade']:.3f}  ruído {chosen['ruido']:.0%}")
+    regioes = manifest["regioes"]
+    print(f"Concentrações espaciais: {regioes['n_concentracoes']} (raio {args.eps_m:.0f} m, "
+          f"≥ {args.min_samples} anúncios), {regioes['ruido']:.0%} dispersos, "
+          f"ARI com bairros {regioes['ari_concentracao_x_bairro']:.2f}")
+    print(f"Relatórios em {args.output.resolve()}")
+    return 0
 
 
 def _classify(args) -> int:
