@@ -43,7 +43,17 @@ def main(argv=None) -> int:
     merge = sub.add_parser("merge", help="Unir CSVs de coletores em uma única base.")
     merge.add_argument("inputs", nargs="+", type=Path)
     merge.add_argument("--output", required=True, type=Path)
+    classify = sub.add_parser("classify", help="Comparar classificadores de faixa de aluguel.")
+    classify.add_argument("input", type=Path, help="Base unificada no contrato de dados.")
+    classify.add_argument("--output", required=True, type=Path)
+    classify.add_argument("--bairros", type=Path, default=BAIRROS_PATH)
+    classify.add_argument("--faixas", type=int, default=3, help="Número de faixas por quantis (2 a 5).")
+    classify.add_argument("--seed", type=int, default=42)
+    classify.add_argument("--repeticoes", type=int, default=0,
+                          help="Repetir o experimento com N sementes (0..N-1) para medir estabilidade.")
     args = parser.parse_args(argv)
+    if args.command == "classify":
+        return _classify(args)
     if args.command == "collect":
         return _collect(args)
     if args.command == "merge":
@@ -109,6 +119,40 @@ def main(argv=None) -> int:
 
 def _sha256(path: Path) -> str:
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def _classify(args) -> int:
+    from .modelagem.classificacao import run_experiment, stability
+    from .modelagem.dataset import build_dataset, prepare_snapshot
+    from .modelagem.relatorio import MODEL_LABELS, write_report
+
+    try:
+        if args.output.exists():
+            raise ValueError("a pasta de saída já existe; escolha uma pasta nova.")
+        if not args.bairros.exists():
+            raise ValueError(f"arquivo de bairros não encontrado: {args.bairros} (fonte: {BAIRROS_URL})")
+        data = build_dataset(prepare_snapshot(args.input, args.bairros))
+        if len(data.X) < 30:
+            raise ValueError(f"apenas {len(data.X)} casas elegíveis; insuficiente para treino e teste.")
+        experiment = run_experiment(data, n_bands=args.faixas, seed=args.seed)
+        runs = stability(data, n_bands=args.faixas, seeds=range(args.repeticoes)) if args.repeticoes > 0 else None
+        write_report(experiment, data, args.output, stability_runs=runs, manifest_extra={
+            "entrada": str(args.input), "entrada_sha256": _sha256(args.input),
+            "bairros_sha256": _sha256(args.bairros), "gerado_em": datetime.now(timezone.utc).isoformat(),
+            "versoes": {"python": platform.python_version(),
+                        **{n: version(n) for n in ["imoveis-pg", "scikit-learn", "pandas", "numpy"]}}})
+    except (DataContractError, OSError, ValueError) as exc:
+        print(f"Erro: {exc}", file=sys.stderr)
+        return 2
+    table = experiment.metrics_table()
+    print(f"{len(data.X)} casas; {args.faixas} faixas; treino {len(experiment.dev_index)}, "
+          f"teste {len(experiment.test_index)}. Balanced accuracy (CV média ± desvio | teste):")
+    for row in table.itertuples():
+        mark = "  <- selecionado" if row.selecionado else ""
+        print(f"  {MODEL_LABELS.get(row.modelo, row.modelo):28s} {row.cv_balanced_accuracy_media:.3f} ± "
+              f"{row.cv_balanced_accuracy_desvio:.3f} | {row.teste_balanced_accuracy:.3f}{mark}")
+    print(f"Relatórios em {args.output.resolve()}")
+    return 0
 
 
 def _collect(args) -> int:
