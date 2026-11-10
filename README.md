@@ -2,8 +2,8 @@
 
 Importação rastreável de CSV, relatório de qualidade, análise exploratória e
 coleta automatizada de anúncios públicos de imobiliárias de Ponta Grossa.
-Inclui a comparação de classificadores por faixa de aluguel e o agrupamento de
-perfis e regiões. O mapa interativo e o simulador são etapas futuras.
+Inclui a comparação de classificadores por faixa de aluguel, o agrupamento de
+perfis e regiões e um app com mapa, filtros e simulador de aluguel.
 
 ## Executar
 Python 3.12 ou superior. Na raiz deste repositório:
@@ -38,6 +38,14 @@ usados nas tabelas e gráficos regionais. Os dois arquivos do IBGE são baixados
 automaticamente na primeira coleta que precisar geocodificar.
 Fontes, conduta da coleta, privacidade e limitações estão em [docs/coleta.md](docs/coleta.md).
 Os dados coletados ficam em data/ e não são versionados.
+
+## Abrir o app (mapa, filtros e simulador)
+```bash
+python -m imoveis_pg build-app data/base_2026-11-09.csv --output data/app/2026-11-09
+python -m imoveis_pg app --artefatos data/app/2026-11-09   # http://localhost:8501
+```
+Clique no mapa, informe as características da casa e veja a faixa de aluguel estimada,
+as casas parecidas anunciadas e os avisos de confiabilidade. Detalhes em [docs/app.md](docs/app.md).
 
 ## Classificar faixas de aluguel
 ```bash
