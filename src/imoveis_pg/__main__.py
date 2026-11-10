@@ -58,7 +58,19 @@ def main(argv=None) -> int:
     cluster.add_argument("--eps-m", type=float, default=600, help="Raio do DBSCAN geográfico, em metros.")
     cluster.add_argument("--min-samples", type=int, default=6, help="Mínimo de anúncios por concentração.")
     cluster.add_argument("--seed", type=int, default=42)
+    build = sub.add_parser("build-app", help="Treinar o modelo final e gerar os artefatos do app.")
+    build.add_argument("input", type=Path, help="Base unificada no contrato de dados.")
+    build.add_argument("--output", required=True, type=Path, help="Pasta nova de artefatos (ex.: data/app/2026-11-09).")
+    build.add_argument("--bairros", type=Path, default=BAIRROS_PATH)
+    build.add_argument("--seed", type=int, default=42)
+    app = sub.add_parser("app", help="Abrir o app Streamlit (mapa, filtros e simulador).")
+    app.add_argument("--artefatos", required=True, type=Path, help="Pasta gerada por build-app.")
+    app.add_argument("--port", type=int, default=8501)
     args = parser.parse_args(argv)
+    if args.command == "build-app":
+        return _build_app(args)
+    if args.command == "app":
+        return _run_app(args)
     if args.command == "cluster":
         return _cluster(args)
     if args.command == "classify":
@@ -128,6 +140,36 @@ def main(argv=None) -> int:
 
 def _sha256(path: Path) -> str:
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def _build_app(args) -> int:
+    from .app.artefatos import build_artifacts
+
+    try:
+        if not args.bairros.exists():
+            raise ValueError(f"arquivo de bairros não encontrado: {args.bairros} (fonte: {BAIRROS_URL})")
+        meta = build_artifacts(args.input, args.bairros, args.output, seed=args.seed)
+    except (DataContractError, OSError, ValueError) as exc:
+        print(f"Erro: {exc}", file=sys.stderr)
+        return 2
+    cv = meta["validacao_cruzada"]["balanced_accuracy"]
+    print(f"Modelo {meta['modelo']} reajustado em {meta['n_casas_modelo']} casas; balanced accuracy na CV "
+          f"{cv['media']:.3f} ± {cv['desvio']:.3f}. Artefatos em {args.output.resolve()}")
+    return 0
+
+
+def _run_app(args) -> int:
+    import subprocess
+
+    if not (args.artefatos / "modelos.joblib").exists():
+        print(f"Erro: {args.artefatos} não contém artefatos; rode build-app antes.", file=sys.stderr)
+        return 2
+    script = Path(__file__).parent / "app" / "streamlit_app.py"
+    print(f"Abrindo o app em http://localhost:{args.port} (Ctrl+C para encerrar)")
+    # headless: não pergunta e-mail nem abre navegador; estatísticas de uso desativadas.
+    return subprocess.call([sys.executable, "-m", "streamlit", "run", str(script), "--server.port", str(args.port),
+                            "--server.headless", "true", "--browser.gatherUsageStats", "false",
+                            "--", "--artefatos", str(args.artefatos.resolve())])
 
 
 def _cluster(args) -> int:

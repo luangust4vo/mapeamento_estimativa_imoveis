@@ -55,6 +55,13 @@ class QuantileBandClassifier(ClassifierMixin, BaseEstimator):
     def predict(self, X):
         return self.estimator_.predict(X)
 
+    def predict_proba(self, X) -> np.ndarray:
+        """Probabilidade de cada faixa (colunas 0..n_bands-1), se o modelo interno a fornecer."""
+        inner = self.estimator_.predict_proba(X)
+        proba = np.zeros((len(inner), self.n_bands))
+        proba[:, np.asarray(self.estimator_.classes_, dtype=int)] = inner
+        return proba
+
 
 class BairroModeClassifier(ClassifierMixin, BaseEstimator):
     """Baseline: prevê a faixa mais frequente do bairro no treino (ou a global, se o bairro for novo)."""
