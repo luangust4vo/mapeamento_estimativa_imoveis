@@ -2,8 +2,8 @@
 
 Importação rastreável de CSV, relatório de qualidade, análise exploratória e
 coleta automatizada de anúncios públicos de imobiliárias de Ponta Grossa.
-Inclui a comparação de classificadores por faixa de aluguel. O mapa interativo,
-o agrupamento e o simulador são etapas futuras.
+Inclui a comparação de classificadores por faixa de aluguel e o agrupamento de
+perfis e regiões. O mapa interativo e o simulador são etapas futuras.
 
 ## Executar
 Python 3.12 ou superior. Na raiz deste repositório:
@@ -45,6 +45,13 @@ python -m imoveis_pg classify data/base_2026-11-09.csv --output reports/classifi
 ```
 Compara baselines, árvore de decisão, KNN, SVM e MLP em faixas de aluguel por quantis
 (`--faixas 3` por padrão). Método, resultados e limitações em [docs/classificacao.md](docs/classificacao.md).
+
+## Agrupar perfis e regiões
+```bash
+python -m imoveis_pg cluster data/base_2026-11-09.csv --output reports/agrupamento-2026-11-09
+```
+K-means, hierárquico (Ward) e DBSCAN para perfis de casas, e DBSCAN geográfico para concentrações de oferta.
+Escolhas, resultados e interpretação em [docs/agrupamento.md](docs/agrupamento.md).
 
 O [contrato de entrada](docs/dados.md) define as 20 colunas obrigatórias,
 unidades, campos opcionais e tratamento de valores inválidos. A instalação
