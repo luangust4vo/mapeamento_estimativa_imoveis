@@ -80,14 +80,15 @@ Saídas existentes nunca são sobrescritas. Se ocorrer falha de escrita, artefat
 parciais podem permanecer sem manifesto; tente novamente em outra pasta.
 
 ## Limitações
-Coordenadas são verificadas apenas contra limites globais, sem confirmar município.
-Localizações aproximadas são identificadas; não há geocodificação.
-A análise de aluguel usa somente locações com aluguel positivo. Contagens gerais
-incluem todas as finalidades. Identidades entre fontes podem representar o mesmo
-imóvel e exigem revisão. IPTU sem periodicidade ou custos ausentes não viram zero.
-Outliers permanecem na base; correlação não indica causalidade.
-Nenhum atributo derivado do aluguel deve entrar como preditor no futuro modelo.
+- Estima o aluguel **anunciado** em quatro imobiliárias numa única data, não o preço negociado; não é
+  avaliação imobiliária oficial.
+- Coordenadas sem número exato são aproximadas (rua, CEP ou bairro) e marcadas como tais; o erro medido vai
+  de ~74 m a ~3 km conforme o método ([docs/coleta.md](docs/coleta.md)).
+- Com 208 casas no modelo, as métricas variam cerca de ±0,09 entre partições ([docs/classificacao.md](docs/classificacao.md)).
+- Possíveis duplicatas entre fontes são sinalizadas, não fundidas. IPTU sem periodicidade e custos ausentes
+  não viram zero. Outliers permanecem na base; correlação não indica causalidade.
+- Nenhum atributo derivado do aluguel entra como preditor.
 
 ## Desenvolvimento
-[Escopo aprovado](docs/proposta-inicial.md), [plano](docs/superpowers/plans/2026-10-19-dados-eda.md)
-e [tarefas no Linear](docs/linear.md). Commits seguem Conventional Commits.
+[Escopo aprovado](docs/proposta-inicial.md), [cronograma, decisões e pendências](docs/gestao.md) e
+[dicionário de dados](docs/dicionario.md). Commits seguem Conventional Commits.
