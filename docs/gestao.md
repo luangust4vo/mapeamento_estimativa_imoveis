@@ -60,7 +60,7 @@ Todos os commits estão em nome de Luan Gustavo. Se o trabalho for em equipe, re
 por cada frente (dados, geoprocessamento, modelagem, aplicação, documentação), como pede a seção 13 da apostila.
 
 ## Pendências
-- [ ] Relatório técnico consolidado (estrutura da seção 15 da apostila)
+- [x] Relatório técnico consolidado: [relatorio_tecnico.md](relatorio_tecnico.md)
 - [ ] Apresentação e demonstração
 - [ ] Forma de entrega da base processada (sem endereço) e decisão sobre versionar o PDF da apostila
 - [ ] Confirmar com o professor: regressão obrigatória ou opcional; quantidade mínima de anúncios

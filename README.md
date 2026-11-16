@@ -90,5 +90,5 @@ parciais podem permanecer sem manifesto; tente novamente em outra pasta.
 - Nenhum atributo derivado do aluguel entra como preditor.
 
 ## Desenvolvimento
-[Escopo aprovado](docs/proposta-inicial.md), [cronograma, decisões e pendências](docs/gestao.md) e
+[Relatório técnico](docs/relatorio_tecnico.md), [escopo aprovado](docs/proposta-inicial.md), [cronograma, decisões e pendências](docs/gestao.md) e
 [dicionário de dados](docs/dicionario.md). Commits seguem Conventional Commits.
