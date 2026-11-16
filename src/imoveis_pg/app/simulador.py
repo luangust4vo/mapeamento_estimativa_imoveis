@@ -19,6 +19,7 @@ COVERAGE_RADIUS_KM = 1.0
 MIN_NEARBY = 5
 MIN_BAIRRO = 5
 N_COMPARABLES = 5
+BAND_TOLERANCE = 0.10
 LABELS = {"area_m2": "Área (m²)", "quartos": "Quartos", "banheiros": "Banheiros", "vagas": "Vagas",
           "suites": "Suítes"}
 
@@ -35,6 +36,8 @@ class Simulation:
     referencia_comparaveis: tuple[float, float, float] | None = None   # Q1, mediana, Q3 do aluguel
     anuncios_proximos: int = 0
     avisos: list[str] = field(default_factory=list)
+    valor: float | None = None                       # aluguel estimado pela regressão (R$/mês)
+    valor_intervalo: tuple[float, float] | None = None
 
 
 def brl(value: float) -> str:
@@ -48,6 +51,7 @@ class Simulator:
         artifacts = Path(artifacts)
         models = joblib.load(artifacts / "modelos.joblib")
         self.classifier, self.profiles = models["classificador"], models["perfis"]
+        self.regressor = models.get("regressor")
         self.metadata = json.loads((artifacts / "metadados.json").read_text(encoding="utf-8"))
         self.listings = pd.read_csv(artifacts / "anuncios.csv")
         self.bairros = gpd.read_file(artifacts / "bairros.geojson")
@@ -55,6 +59,12 @@ class Simulator:
         self.eligible = self.listings[self.listings.elegivel].copy()
         self.band_names = self.metadata["faixas"]["nomes"]
         self.limits = self.metadata["faixas"]["limites"]
+
+    def value_outside_band(self, value: float, band: int) -> bool:
+        """Perto da divisa entre faixas a diferença é ruído: só conta se o valor sair mais de 10% da faixa."""
+        low = self.limits[band - 1] if band > 0 else 0.0
+        high = self.limits[band] if band < len(self.limits) else float("inf")
+        return value < low * (1 - BAND_TOLERANCE) or value > high * (1 + BAND_TOLERANCE)
 
     def band_interval(self, band: int) -> str:
         if band == 0:
@@ -124,6 +134,17 @@ class Simulator:
             if value is not None and low is not None and not low <= value <= high:
                 warnings.append(f"{LABELS[column]} = {value:g} está fora do intervalo da base "
                                 f"({low:g} a {high:g}): a estimativa é uma extrapolação.")
+        value, value_interval = None, None
+        regression = self.metadata.get("regressao") or {}
+        if self.regressor is not None and regression.get("mostrar_valor"):
+            value = float(self.regressor.predict(X)[0])
+            low, high = regression["intervalo"]["multiplicadores"]
+            value_interval = (value * low, value * high)
+            value_band = int(self.classifier.to_bands([value])[0])
+            if self.value_outside_band(value, band):
+                warnings.append(f"O valor estimado ({brl(value)}) fica na faixa {self.band_names[value_band]}, "
+                                f"diferente da faixa prevista pelo classificador ({self.band_names[band]}). "
+                                "Os dois modelos discordam: a estimativa é incerta.")
         comparable_band = int(self.classifier.to_bands([median])[0])
         if comparable_band != band:
             warnings.append(f"As casas mais parecidas anunciadas têm mediana de {brl(median)} (faixa "
@@ -135,4 +156,4 @@ class Simulator:
             True, bairro, self.band_names[band], self.band_interval(band),
             {name: float(p) for name, p in zip(self.band_names, proba)},
             self._profile(area_m2, quartos, banheiros, suites, median), comparables, (q1, median, q3),
-            nearby, warnings)
+            nearby, warnings, value, value_interval)
