@@ -56,12 +56,13 @@ Datas dos commits; a coluna "Encontros" relaciona cada entrega ao planejamento d
 | Escopo excessivo | Casas para locação numa cidade; venda e apartamentos fora |
 
 ## Equipe e contribuições
-Todos os commits estão em nome de Luan Gustavo. Se o trabalho for em equipe, registre aqui quem foi responsável
-por cada frente (dados, geoprocessamento, modelagem, aplicação, documentação), como pede a seção 13 da apostila.
+Trabalho individual de Luan Gustavo, responsável por todas as frentes: dados, geoprocessamento, modelagem,
+aplicação e documentação.
 
 ## Pendências
 - [x] Relatório técnico consolidado: [relatorio_tecnico.md](relatorio_tecnico.md)
 - [x] ~~Apresentação por slides~~: cancelada (informado em 2026-11-16)
-- [ ] Forma de entrega da base processada (sem endereço) e decisão sobre versionar o PDF da apostila
+- [x] Base processada pública versionada em `data/processado/` (sem endereço, CEP ou dados pessoais; coordenadas a ~100 m)
+- [ ] Decidir se o PDF da apostila deve ser versionado
 - [ ] Confirmar com o professor: regressão obrigatória ou opcional; quantidade mínima de anúncios
 - [ ] Opcional: coletores da Kikina e da Conceito para reduzir a incerteza das métricas

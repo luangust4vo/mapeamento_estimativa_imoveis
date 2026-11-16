@@ -108,7 +108,12 @@ Na classificação, a imputação (mediana + indicador), a padronização e o on
 | `comparacao` | `dentro do padrão`, `acima do padrão` (anunciado acima do previsto) ou `abaixo do padrão` |
 | `perfil` | Perfil do K-means: `1 · compacta e econômica`, `2 · familiar intermediária` ou `3 · ampla de alto padrão` |
 
-## 6. Dados geográficos de referência (IBGE)
+## 6. Base processada pública (`export-base`)
+`data/processado/base_2026-11-09.csv` (236 anúncios, 37 colunas) traz as colunas das seções 1 a 3 que não
+identificam o imóvel: sem `endereco`, `logradouro`, `numero`, `cep` e `*_original`, e com `latitude` e
+`longitude` arredondadas a 3 casas decimais (~100 m). Separador vírgula, decimal ponto.
+
+## 7. Dados geográficos de referência (IBGE)
 | Arquivo | Uso |
 |---|---|
 | `4119905_PONTA_GROSSA.zip` (CNEFE 2022) | 178.567 endereços com CEP, logradouro, número e coordenadas; geocodificação offline |

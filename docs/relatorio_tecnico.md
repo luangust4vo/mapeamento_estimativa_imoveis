@@ -1,7 +1,7 @@
 # Mapeamento e estimativa de aluguéis de casas em Ponta Grossa (PR)
 
 **Relatório técnico** · Projeto Integrador · Aprendizagem de Máquina · Engenharia de Software · IFPR
-**Autor:** Luan Gustavo · **Base de dados:** coleta de 2026-11-09 · **Versão do relatório:** 2026-11-16
+**Autor:** Luan Gustavo (trabalho individual) · **Base de dados:** coleta de 2026-11-09 · **Versão do relatório:** 2026-11-16
 
 ---
 
@@ -350,6 +350,7 @@ python -m imoveis_pg build-app data/base_2026-11-09.csv --output data/app/2026-1
 python -m imoveis_pg app --artefatos data/app/2026-11-09
 python -m pytest -q   # 102 testes
 ```
+A base processada pública está em `data/processado/base_2026-11-09.csv` (sem endereço; coordenadas arredondadas a ~100 m).
 Uma nova coleta gera dados de outra data. Para reproduzir exatamente estes resultados, use o cache de páginas
 em `data/raw/` com `--offline`. Cada relatório grava sementes, hiperparâmetros, versões e o SHA-256 da entrada
 no `manifest.json`.
