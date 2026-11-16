@@ -8,6 +8,7 @@ from pathlib import Path
 import platform
 import sys
 
+import numpy as np
 import pandas as pd
 
 from .data import DataContractError, load_listings, normalize_text
@@ -70,7 +71,16 @@ def main(argv=None) -> int:
     export.add_argument("input", type=Path, help="Base unificada no contrato de dados.")
     export.add_argument("--output", required=True, type=Path, help="CSV novo (ex.: data/processado/base_AAAA-MM-DD.csv).")
     export.add_argument("--bairros", type=Path, default=BAIRROS_PATH)
+    regress = sub.add_parser("regress", help="Comparar regressores do aluguel em reais.")
+    regress.add_argument("input", type=Path, help="Base unificada no contrato de dados.")
+    regress.add_argument("--output", required=True, type=Path)
+    regress.add_argument("--bairros", type=Path, default=BAIRROS_PATH)
+    regress.add_argument("--seed", type=int, default=42)
+    regress.add_argument("--repeticoes", type=int, default=0,
+                         help="Repetir o experimento com N sementes (0..N-1) para medir estabilidade.")
     args = parser.parse_args(argv)
+    if args.command == "regress":
+        return _regress(args)
     if args.command == "export-base":
         return _export_base(args)
     if args.command == "build-app":
@@ -148,6 +158,44 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
 
+def _regress(args) -> int:
+    from .modelagem.dataset import build_dataset, prepare_snapshot
+    from .modelagem.regressao import regression_stability, run_regression
+    from .modelagem.relatorio_regressao import MODEL_LABELS, write_regression_report
+
+    try:
+        if args.output.exists():
+            raise ValueError("a pasta de saída já existe; escolha uma pasta nova.")
+        if not args.bairros.exists():
+            raise ValueError(f"arquivo de bairros não encontrado: {args.bairros} (fonte: {BAIRROS_URL})")
+        data = build_dataset(prepare_snapshot(args.input, args.bairros))
+        if len(data.X) < 30:
+            raise ValueError(f"apenas {len(data.X)} casas elegíveis; insuficiente para treino e teste.")
+        experiment = run_regression(data, seed=args.seed)
+        dev_rent = data.y.loc[experiment.dev_index]
+        bands = [float(q) for q in dev_rent.quantile([1 / 3, 2 / 3])]
+        runs = regression_stability(data, seeds=range(args.repeticoes)) if args.repeticoes > 0 else None
+        write_regression_report(experiment, data, args.output, band_limits=bands, stability_runs=runs,
+                                manifest_extra={
+            "entrada": str(args.input), "entrada_sha256": _sha256(args.input),
+            "gerado_em": datetime.now(timezone.utc).isoformat(),
+            "versoes": {"python": platform.python_version(),
+                        **{n: version(n) for n in ["imoveis-pg", "scikit-learn", "pandas", "numpy"]}}})
+    except (DataContractError, OSError, ValueError) as exc:
+        print(f"Erro: {exc}", file=sys.stderr)
+        return 2
+    print(f"{len(data.X)} casas; treino {len(experiment.dev_index)}, teste {len(experiment.test_index)}. "
+          "MAE em R$ (CV média ± desvio | teste) e MAPE no teste:")
+    for row in experiment.metrics_table().itertuples():
+        mark = "  <- selecionado" if row.selecionado else ""
+        print(f"  {MODEL_LABELS.get(row.modelo, row.modelo):30s} {row.cv_mae_media:8.0f} ± {row.cv_mae_desvio:6.0f} | "
+              f"{row.teste_mae:9.0f}  MAPE {row.teste_mape:.0%}{mark}")
+    low, high = (np.exp(v) for v in experiment.interval_log)
+    print(f"Intervalo de 80%: previsão × {low:.2f} a × {high:.2f}; cobertura no teste {experiment.interval_coverage:.0%}")
+    print(f"Relatórios em {args.output.resolve()}")
+    return 0
+
+
 def _export_base(args) -> int:
     from .exportacao import COORDINATE_DECIMALS, public_table
     from .modelagem.dataset import prepare_snapshot
@@ -186,8 +234,14 @@ def _build_app(args) -> int:
         print(f"Erro: {exc}", file=sys.stderr)
         return 2
     cv = meta["validacao_cruzada"]["balanced_accuracy"]
-    print(f"Modelo {meta['modelo']} reajustado em {meta['n_casas_modelo']} casas; balanced accuracy na CV "
-          f"{cv['media']:.3f} ± {cv['desvio']:.3f}. Artefatos em {args.output.resolve()}")
+    reg = meta["regressao"]
+    err, base = reg["validacao_fora_da_amostra"], reg["referencia_mediana_bairro"]
+    print(f"Classificador {meta['modelo']} reajustado em {meta['n_casas_modelo']} casas; balanced accuracy na CV "
+          f"{cv['media']:.3f} ± {cv['desvio']:.3f}.")
+    print(f"Regressor {reg['modelo']}: MAE fora da amostra R$ {err['mae']:.0f} ({err['mape']:.0%}) contra "
+          f"R$ {base['mae']:.0f} ({base['mape']:.0%}) da mediana do bairro; valor em reais "
+          f"{'exibido' if reg['mostrar_valor'] else 'oculto'} no app.")
+    print(f"Artefatos em {args.output.resolve()}")
     return 0
 
 
