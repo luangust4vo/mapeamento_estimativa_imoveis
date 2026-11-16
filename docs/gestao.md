@@ -61,7 +61,7 @@ por cada frente (dados, geoprocessamento, modelagem, aplicação, documentação
 
 ## Pendências
 - [x] Relatório técnico consolidado: [relatorio_tecnico.md](relatorio_tecnico.md)
-- [ ] Apresentação e demonstração
+- [x] ~~Apresentação por slides~~: cancelada (informado em 2026-11-16)
 - [ ] Forma de entrega da base processada (sem endereço) e decisão sobre versionar o PDF da apostila
 - [ ] Confirmar com o professor: regressão obrigatória ou opcional; quantidade mínima de anúncios
 - [ ] Opcional: coletores da Kikina e da Conceito para reduzir a incerteza das métricas
