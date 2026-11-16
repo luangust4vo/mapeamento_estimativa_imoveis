@@ -23,6 +23,7 @@ Datas dos commits; a coluna "Encontros" relaciona cada entrega ao planejamento d
 | 2026-11-09 | Agrupamento: K-means, Ward e DBSCAN (perfis) e DBSCAN geográfico | 8–9 | `docs/agrupamento.md` |
 | 2026-11-09 | Protótipo Streamlit: mapa, filtros, simulador, qualidade dos dados | 14 | `docs/app.md` |
 | 2026-11-16 | Filtros reorganizados, dicionário de dados e este registro de gestão | 15 | `docs/dicionario.md` |
+| 2026-11-16 | Regressão do valor em reais e valor estimado no simulador | 13 | `docs/regressao.md` |
 
 ## Registro de decisões
 | Data | Decisão | Motivo | Alternativa descartada |
@@ -43,6 +44,10 @@ Datas dos commits; a coluna "Encontros" relaciona cada entrega ao planejamento d
 | 2026-11-09 | Suítes = 0 e vagas = 0 tratadas como ausentes no simulador | Reproduz a codificação do treino; no mesmo ponto, o zero cru dava média com 100% e a codificação correta, baixa com 80% | — |
 | 2026-11-16 | Filtros dentro da aba do mapa, e não numa barra lateral | Na barra lateral, apareciam também no simulador, que não os usa | Fixar os filtros no código (descartado: é requisito mínimo da apostila) |
 | 2026-11-16 | Gestão registrada no repositório em vez do Linear | Um só lugar para planejamento, decisões e evidências | Manter o Linear atualizado à mão |
+| 2026-11-16 | Fazer a regressão mesmo sem confirmação do professor | O AGENTS.md pede "valor estimado"; cobre a regressão obrigatória ou opcional | Só a faixa |
+| 2026-11-16 | Alvo em log e métricas em reais; SVR no app | Assimetria forte; o SVR foi escolhido nas 10 partições e superou a mediana do bairro em todas | MLP (instável com alvo em log) |
+| 2026-11-16 | Intervalo de 80% pelos resíduos fora da amostra, com cobertura verificada no teste | A proposta inicial só permitia intervalo depois de verificar a cobertura (81% em média) | Intervalo fixo arbitrário |
+| 2026-11-16 | Discordância entre valor e faixa só avisada além de 10% da divisa | Na divisa (ex.: R$ 1.544 com limite de R$ 1.500) o aviso era ruído | Avisar qualquer diferença de faixa |
 
 ## Riscos (seção 19 da apostila) e como foram tratados
 | Risco | Situação |
@@ -64,5 +69,6 @@ aplicação e documentação.
 - [x] ~~Apresentação por slides~~: cancelada (informado em 2026-11-16)
 - [x] Base processada pública versionada em `data/processado/` (sem endereço, CEP ou dados pessoais; coordenadas a ~100 m)
 - [ ] Decidir se o PDF da apostila deve ser versionado
-- [ ] Confirmar com o professor: regressão obrigatória ou opcional; quantidade mínima de anúncios
+- [x] Regressão do valor em reais: [regressao.md](regressao.md) (feita sem confirmação do professor, para cobrir os dois casos)
+- [ ] Confirmar com o professor a quantidade mínima de anúncios
 - [ ] Opcional: coletores da Kikina e da Conceito para reduzir a incerteza das métricas

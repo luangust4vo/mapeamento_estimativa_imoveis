@@ -2,8 +2,9 @@
 
 Importação rastreável de CSV, relatório de qualidade, análise exploratória e
 coleta automatizada de anúncios públicos de imobiliárias de Ponta Grossa.
-Inclui a comparação de classificadores por faixa de aluguel, o agrupamento de
-perfis e regiões e um app com mapa, filtros e simulador de aluguel.
+Inclui a comparação de classificadores por faixa de aluguel, a regressão do valor
+em reais, o agrupamento de perfis e regiões e um app com mapa, filtros e simulador
+de aluguel.
 
 ## Executar
 Python 3.12 ou superior. Na raiz deste repositório:
@@ -44,8 +45,15 @@ Os dados coletados ficam em data/ e não são versionados.
 python -m imoveis_pg build-app data/base_2026-11-09.csv --output data/app/2026-11-09
 python -m imoveis_pg app --artefatos data/app/2026-11-09   # http://localhost:8501
 ```
-Clique no mapa, informe as características da casa e veja a faixa de aluguel estimada,
+Clique no mapa, informe as características da casa e veja o aluguel estimado (com intervalo), a faixa,
 as casas parecidas anunciadas e os avisos de confiabilidade. Detalhes em [docs/app.md](docs/app.md).
+
+## Estimar o valor do aluguel (regressão)
+```bash
+python -m imoveis_pg regress data/base_2026-11-09.csv --output reports/regressao-2026-11-09 --repeticoes 10
+```
+Compara a mediana do bairro, regressão linear, árvore, KNN, SVR e MLP no valor em reais (MAE, MAPE, RMSE e R²),
+com intervalo de previsão de 80% e análise de resíduos. Detalhes em [docs/regressao.md](docs/regressao.md).
 
 ## Classificar faixas de aluguel
 ```bash
