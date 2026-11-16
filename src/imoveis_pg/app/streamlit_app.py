@@ -56,19 +56,22 @@ def fmt_m2(value) -> str:
 
 
 def filter_listings(df: pd.DataFrame) -> pd.DataFrame:
-    sb = st.sidebar
-    sb.header("Filtros")
-    sb.caption("Finalidade: a base atual contém apenas anúncios de **locação**.")
-    usos = sb.multiselect("Uso", ["residencial", "comercial"], default=["residencial"])
-    subtipos = sb.multiselect("Tipo de imóvel", ["casa", "sobrado", "condominio"],
-                              default=["casa", "sobrado", "condominio"],
-                              format_func={"casa": "Casa", "sobrado": "Sobrado",
-                                           "condominio": "Casa em condomínio"}.get)
-    bairros = sb.multiselect("Bairros", sorted(df.bairro_oficial.dropna().unique()), placeholder="Todos")
-    low, high = int(df.aluguel.min()), int(df.aluguel.max())
-    faixa = sb.slider("Aluguel (R$/mês)", low, high, (low, high), step=100)
-    quartos = sb.multiselect("Quartos", ["1", "2", "3", "4", "5+", "não informado"], placeholder="Todos")
-    perfis = sb.multiselect("Perfil", sorted(df.perfil.dropna().unique()), placeholder="Todos")
+    """Filtros do mapa, exibidos só na aba do mapa (o simulador não depende deles)."""
+    with st.expander("Filtros", expanded=True):
+        c = st.columns([1, 1.9, 1.1, 1.6])
+        c[0].selectbox("Finalidade", ["Locação"], disabled=True,
+                       help="A base atual contém apenas anúncios de locação.")
+        subtipos = c[1].multiselect("Tipo de imóvel", ["casa", "sobrado", "condominio"],
+                                    default=["casa", "sobrado", "condominio"],
+                                    format_func={"casa": "Casa", "sobrado": "Sobrado",
+                                                 "condominio": "Casa em condomínio"}.get)
+        usos = c[2].multiselect("Uso", ["residencial", "comercial"], default=["residencial"])
+        bairros = c[3].multiselect("Bairros", sorted(df.bairro_oficial.dropna().unique()), placeholder="Todos")
+        c = st.columns([2, 1.2, 1.8])
+        low, high = int(df.aluguel.min()), int(df.aluguel.max())
+        faixa = c[0].slider("Aluguel (R$/mês)", low, high, (low, high), step=100)
+        quartos = c[1].multiselect("Quartos", ["1", "2", "3", "4", "5+", "não informado"], placeholder="Todos")
+        perfis = c[2].multiselect("Perfil", sorted(df.perfil.dropna().unique()), placeholder="Todos")
     mask = df.uso.isin(usos) & df.subtipo.isin(subtipos) & df.aluguel.between(*faixa)
     if bairros:
         mask &= df.bairro_oficial.isin(bairros)
@@ -334,9 +337,9 @@ def main():
     st.title("Aluguéis de casas em Ponta Grossa")
     st.caption(f"Protótipo acadêmico (IFPR) • {len(sim.listings)} anúncios de {len(sim.metadata['fontes'])} "
                f"imobiliárias • coleta de {', '.join(sim.metadata['data_coleta'])}")
-    df = filter_listings(sim.listings)
     tabs = st.tabs(["Mapa do mercado", "Simulador", "Qualidade dos dados", "Sobre e limitações"])
     with tabs[0]:
+        df = filter_listings(sim.listings)
         if df.empty:
             st.warning("Nenhum anúncio com os filtros atuais.")
         else:

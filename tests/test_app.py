@@ -117,3 +117,15 @@ def test_streamlit_app_runs_and_simulates(artifacts, monkeypatch):
     labels = [m.label for m in at.metric]
     assert "Faixa estimada" in labels and "Bairro oficial" in labels
     assert any(m.value == "Uvaranas" for m in at.metric)
+
+
+def test_filters_live_in_map_tab_and_recalculate(artifacts, monkeypatch):
+    from streamlit.testing.v1 import AppTest
+    monkeypatch.setenv("IMOVEIS_PG_APP_DIR", str(artifacts[0]))
+    at = AppTest.from_file(str(APP), default_timeout=60).run()
+    assert len(at.sidebar) == 0  # sem barra lateral: filtros ficam só na aba do mapa
+    finalidade = next(s for s in at.selectbox if s.label == "Finalidade")
+    assert finalidade.value == "Locação" and finalidade.disabled
+    next(m for m in at.multiselect if m.label == "Bairros").set_value(["Uvaranas"]).run()
+    assert not at.exception
+    assert next(m for m in at.metric if m.label == "Anúncios filtrados").value == "45"

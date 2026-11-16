@@ -44,8 +44,10 @@ Na base atual: 149 dentro do padrão, 31 anunciadas acima e 28 abaixo do previst
    - Lista dos anúncios acima ou abaixo do padrão.
 4. **Sobre e limitações:** método, fontes e avisos.
 
-**Filtros** (barra lateral): uso, tipo (casa, sobrado, casa em condomínio), bairros, faixa de aluguel, quartos e
-perfil. A finalidade é fixa: a base atual só tem locação, e o app avisa isso.
+**Filtros** (painel no topo da aba do mapa, a única tela que depende deles): finalidade, tipo (casa, sobrado,
+casa em condomínio), uso, bairros, faixa de aluguel, quartos e perfil. A finalidade aparece travada em "Locação",
+porque a base atual só tem locação. Antes os filtros ficavam numa barra lateral visível em todas as abas, inclusive
+no simulador, que não os usa.
 
 ## Regras do simulador
 - **Fora dos bairros oficiais** (mais de 300 m de qualquer polígono): estimativa indisponível, com a explicação.
