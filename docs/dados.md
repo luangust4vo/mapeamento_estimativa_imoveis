@@ -1,4 +1,6 @@
 # Contrato de dados
+Todas as colunas, inclusive extras e derivadas, estão descritas no [dicionário de dados](dicionario.md).
+
 CSV UTF-8 (BOM aceito), delimitado por ponto e vírgula; decimal vírgula.
 Use --sep e --decimal para outra convenção. Não há detecção automática.
 
@@ -23,7 +25,8 @@ As colunas *_original guardam a representação recebida, inclusive espaços.
 row_id combina SHA-256 dos bytes de entrada e número ordinal do registro (+ cabeçalho).
 A coluna linha é ordinal do registro CSV; em campos multilinha não é a linha física.
 A normalização do bairro só remove acentos, caixa e espaços repetidos; não une
-nomes aproximados. Não existe imputação, geocodificação ou certificação municipal nesta fase.
+nomes aproximados. A importação não imputa nem geocodifica: a geocodificação acontece na coleta
+([coleta.md](coleta.md)) e a atribuição aos bairros oficiais, com `--bairros` (abaixo).
 
 ## Identidade e qualidade
 entity_id prefere fonte normalizada + id, depois URL (host/esquema em minúsculas,
@@ -31,8 +34,9 @@ sem fragmento e barra final), depois row_id. Histórico é preservado; snapshot
 seleciona a observação de data mais recente (datas ausentes primeiro), com row_id
 como desempate determinístico. Conflitos id/URL precisam de revisão antes de
 treinar. Contagens do snapshot são de anúncios, não garantia de imóveis únicos.
-Mesmo endereço preenchido, área e quartos entre fontes sinalizam possível duplicata,
-sem fusão automática. Ausências não geram correspondência.
+Mesmo logradouro (sem o número, que algumas fontes omitem), área e quartos entre fontes
+sinalizam possível duplicata, sem fusão automática, e recebem o mesmo `grupo_imovel`.
+Ausências não geram correspondência.
 
 aluguel_m2 exige aluguel e área positivos. densidade_quartos usa quartos/área.
 IPTU mensal é mantido; anual é dividido por 12; periodicidade desconhecida
