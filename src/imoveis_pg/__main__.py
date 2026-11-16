@@ -66,7 +66,13 @@ def main(argv=None) -> int:
     app = sub.add_parser("app", help="Abrir o app Streamlit (mapa, filtros e simulador).")
     app.add_argument("--artefatos", required=True, type=Path, help="Pasta gerada por build-app.")
     app.add_argument("--port", type=int, default=8501)
+    export = sub.add_parser("export-base", help="Gerar a base processada pública (sem endereço).")
+    export.add_argument("input", type=Path, help="Base unificada no contrato de dados.")
+    export.add_argument("--output", required=True, type=Path, help="CSV novo (ex.: data/processado/base_AAAA-MM-DD.csv).")
+    export.add_argument("--bairros", type=Path, default=BAIRROS_PATH)
     args = parser.parse_args(argv)
+    if args.command == "export-base":
+        return _export_base(args)
     if args.command == "build-app":
         return _build_app(args)
     if args.command == "app":
@@ -140,6 +146,33 @@ def main(argv=None) -> int:
 
 def _sha256(path: Path) -> str:
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def _export_base(args) -> int:
+    from .exportacao import COORDINATE_DECIMALS, public_table
+    from .modelagem.dataset import prepare_snapshot
+
+    try:
+        if args.output.exists():
+            raise ValueError("o CSV de saída já existe; escolha outro nome.")
+        if not args.bairros.exists():
+            raise ValueError(f"arquivo de bairros não encontrado: {args.bairros} (fonte: {BAIRROS_URL})")
+        table = public_table(prepare_snapshot(args.input, args.bairros))
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        table.to_csv(args.output, index=False, encoding="utf-8")
+        manifest = {"entrada_sha256": _sha256(args.input), "saida_sha256": _sha256(args.output),
+                    "gerado_em": datetime.now(timezone.utc).isoformat(), "linhas": len(table),
+                    "colunas": list(table.columns), "casas_elegiveis": int(table.elegivel_preliminar.sum()),
+                    "coordenadas": f"arredondadas a {COORDINATE_DECIMALS} casas decimais (~100 m)",
+                    "removido": "endereço, logradouro, número, CEP, valores originais e qualquer dado pessoal",
+                    "formato": "CSV UTF-8, separador vírgula, decimal ponto"}
+        args.output.with_name(args.output.stem + ".manifest.json").write_text(
+            json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    except (DataContractError, OSError, ValueError) as exc:
+        print(f"Erro: {exc}", file=sys.stderr)
+        return 2
+    print(f"{len(table)} anúncios ({manifest['casas_elegiveis']} casas elegíveis) gravados em {args.output}")
+    return 0
 
 
 def _build_app(args) -> int:

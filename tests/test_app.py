@@ -129,3 +129,30 @@ def test_filters_live_in_map_tab_and_recalculate(artifacts, monkeypatch):
     next(m for m in at.multiselect if m.label == "Bairros").set_value(["Uvaranas"]).run()
     assert not at.exception
     assert next(m for m in at.metric if m.label == "Anúncios filtrados").value == "45"
+
+
+def test_public_base_has_no_address_and_rounded_coordinates(tmp_path, write_csv, listing):
+    from imoveis_pg.__main__ import main
+    from imoveis_pg.exportacao import public_table
+
+    listing.update(endereco="Rua Secreta, 123", latitude="-25,1234567", longitude="-50,1234567",
+                   bairro="Uvaranas", cep="84000123", logradouro="Rua Secreta", numero="123")
+    source = write_csv([listing], fields=list(listing))
+    out = tmp_path / "publico" / "base.csv"
+    assert main(["export-base", str(source), "--output", str(out),
+                 "--bairros", str(write_bairros_gpkg(tmp_path / "b.gpkg"))]) == 0
+    text = out.read_text(encoding="utf-8")
+    assert "Secreta" not in text and "84000123" not in text and "1234567" not in text
+    row = pd.read_csv(out).iloc[0]
+    assert (row.latitude, row.longitude) == (-25.123, -50.123) and row.bairro_oficial == "Uvaranas"
+    manifest = json.loads((out.parent / "base.manifest.json").read_text(encoding="utf-8"))
+    assert manifest["linhas"] == 1 and "endereco" not in manifest["colunas"]
+    # A lista de colunas permitidas é a proteção; a checagem barra quem incluir uma coluna proibida nela.
+    import imoveis_pg.exportacao as exportacao
+    frame = pd.DataFrame({"id": [1], "latitude": [0.0], "longitude": [0.0], "data_coleta": ["2026-11-09"],
+                          "fonte": ["x"], "endereco_original": ["Rua Secreta, 123"]})
+    assert "endereco_original" not in public_table(frame)
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(exportacao, "PUBLIC_COLUMNS", exportacao.PUBLIC_COLUMNS + ["endereco_original"])
+        with pytest.raises(ValueError, match="proibidas"):
+            exportacao.public_table(frame)

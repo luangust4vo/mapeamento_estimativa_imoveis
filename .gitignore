@@ -7,3 +7,4 @@ reports/
 data/*
 !data/README.md
 .playwright-mcp/
+!data/processado/
