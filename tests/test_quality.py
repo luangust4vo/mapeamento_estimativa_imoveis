@@ -66,3 +66,13 @@ def test_empty_quality(write_csv):
     result = audit(write_csv, [])
     assert result.snapshot.empty
     assert result.summary["observacoes"] == 0
+
+
+def test_duplicate_ignores_missing_house_number(write_csv, listing):
+    result = audit(write_csv, [dict(listing, id="1", url="", fonte="A", endereco="Rua das Flores, 120"),
+                               dict(listing, id="2", url="", fonte="B", endereco="R. das Flores"),
+                               dict(listing, id="3", url="", fonte="C", endereco="Rua das Palmeiras, 120")])
+    flagged = result.snapshot.set_index("id").candidato_duplicata
+    assert flagged.to_dict() == {"1": True, "2": True, "3": False}
+    groups = result.snapshot.set_index("id").grupo_imovel
+    assert groups["1"] == groups["2"] != groups["3"]

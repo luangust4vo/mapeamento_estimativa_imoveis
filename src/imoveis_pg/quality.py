@@ -1,5 +1,6 @@
 """Auditoria exploratória: preserva observações e separa o retrato atual."""
 import json
+import re
 from dataclasses import dataclass
 from urllib.parse import urlsplit, urlunsplit
 
@@ -7,6 +8,7 @@ import numpy as np
 import pandas as pd
 
 from .data import ISSUE_COLUMNS, normalize_text
+from .geo.cnefe import street_key
 
 
 @dataclass
@@ -25,6 +27,13 @@ def _url(value):
         return urlunsplit((u.scheme.lower(), u.netloc.lower(), u.path.rstrip("/"), u.query, ""))
     except ValueError:
         return str(value).strip()
+
+
+def street_of(address) -> str:
+    """Logradouro comparável, sem o número final ("Rua X, 10" == "RUA X")."""
+    if pd.isna(address):
+        return ""
+    return street_key(re.sub(r",\s*(\d+\w*|s/?n)\s*$", "", str(address), flags=re.I))
 
 
 def audit_listings(rows: pd.DataFrame) -> QualityResult:
@@ -90,13 +99,17 @@ def audit_listings(rows: pd.DataFrame) -> QualityResult:
     snapshot = (observations.sort_values(["data_coleta", "row_id"], na_position="first")
                 .drop_duplicates("entity_id", keep="last").sort_values("row_id").copy())
     snapshot["candidato_duplicata"] = False
-    candidates = snapshot.assign(_address=snapshot.endereco.map(normalize_text), _source=snapshot.fonte.map(normalize_text))
+    # Grupo de imóvel: anúncios possivelmente do mesmo imóvel ficam juntos na separação treino/teste.
+    snapshot["grupo_imovel"] = snapshot.entity_id
+    # Logradouro sem número: algumas fontes omitem o número da casa.
+    candidates = snapshot.assign(_address=snapshot.endereco.map(street_of), _source=snapshot.fonte.map(normalize_text))
     complete = candidates._address.ne("") & candidates.area_m2.gt(0) & candidates.quartos.notna() & candidates._source.ne("")
     for _, group in candidates.loc[complete].groupby(["_address", "area_m2", "quartos"]):
         if group._source.nunique() > 1:
             snapshot.loc[group.index, "candidato_duplicata"] = True
+            snapshot.loc[group.index, "grupo_imovel"] = "dup:" + min(snapshot.loc[group.index, "entity_id"])
             for index in group.index:
-                issue(index, "endereco", "possivel_duplicata", "Endereço, área e quartos coincidem entre fontes; confirmação necessária.")
+                issue(index, "endereco", "possivel_duplicata", "Logradouro, área e quartos coincidem entre fontes; confirmação necessária.")
     observations["candidato_duplicata"] = observations.entity_id.isin(snapshot.loc[snapshot.candidato_duplicata, "entity_id"])
     for column in ["aluguel", "preco", "area_m2", "aluguel_m2", "custo_mensal_total"]:
         values = snapshot[column].dropna()
@@ -116,7 +129,8 @@ def audit_listings(rows: pd.DataFrame) -> QualityResult:
         "conflitos_identidade": sum(i[2] == "conflito_identidade" for i in issues),
         "coordenadas_validas": int(snapshot.coordenadas_validas.sum()),
         "elegiveis_preliminares": int(snapshot.elegivel_preliminar.sum()),
-        "regioes": snapshot.bairro_normalizado.replace("", "Bairro não informado").value_counts().to_dict(),
+        "regioes": (snapshot.bairro_oficial.fillna("Bairro não resolvido") if "bairro_oficial" in snapshot
+                    else snapshot.bairro_normalizado.replace("", "Bairro não informado")).value_counts().to_dict(),
         "estatisticas": json.loads(numeric.describe().to_json()) if len(numeric.columns) else {},
         "avisos": ["Validação municipal pendente; coordenadas válidas globalmente não comprovam localização em Ponta Grossa.",
                    "Snapshot conta identidades de anúncios; candidatos entre fontes ainda podem representar o mesmo imóvel.",

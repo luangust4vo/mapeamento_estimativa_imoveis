@@ -18,7 +18,8 @@ NUMERIC = MONEY | COUNTS | {"area_m2", "latitude", "longitude"}
 ISSUE_COLUMNS = ["linha", "coluna", "codigo", "valor_original", "mensagem"]
 RESERVED = {"row_id", "linha", "bairro_normalizado", "entity_id", "coordenadas_validas",
             "elegivel_preliminar", "aluguel_m2", "iptu_mensal", "custo_mensal_total",
-            "densidade_quartos", "idade", "duplicata_exata", "candidato_duplicata"}
+            "densidade_quartos", "idade", "duplicata_exata", "candidato_duplicata",
+            "bairro_oficial", "bairro_metodo", "bairro_conflito", "grupo_imovel"}
 
 
 class DataContractError(ValueError):

@@ -57,9 +57,11 @@ def analyze_listings(snapshot: pd.DataFrame, output_dir: Path, *, synthetic_inpu
             ax.set_xlabel(label)
     save_plot(fig, "distribuicoes.png", "Distribuição dos valores de locação")
 
-    for key, name in [("bairro_normalizado", "bairro"), ("tipo", "tipo"), ("finalidade", "finalidade")]:
+    official = "bairro_oficial" in snapshot
+    bairro_key = "bairro_oficial" if official else "bairro_normalizado"
+    for key, name in [(bairro_key, "bairro"), ("tipo", "tipo"), ("finalidade", "finalidade")]:
         all_rows = snapshot.copy()
-        label = "Bairro não informado" if name == "bairro" else "Não informado"
+        label = ("Bairro não resolvido" if official else "Bairro não informado") if name == "bairro" else "Não informado"
         all_rows[key] = all_rows[key].fillna("").replace("", label)
         data = rent.copy()
         data[key] = data[key].fillna("").replace("", label)
