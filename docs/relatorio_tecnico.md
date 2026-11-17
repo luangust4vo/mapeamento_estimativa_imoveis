@@ -120,9 +120,11 @@ erro, os 115 endereços da Torre Blanca (que têm coordenadas) foram geocodifica
 | Rua e CEP | 520 m |
 | Centro do bairro | ~2,9 km |
 
-A inspeção espacial revelou e corrigiu dois erros: um CEP genérico dos Correios (sufixo 970), que jogava sete casas
+A inspeção espacial (figura abaixo) revelou e corrigiu dois erros: um CEP genérico dos Correios (sufixo 970), que jogava sete casas
 num ponto rural, e um CEP de outra região, que deslocava anúncios em 7,7 km. Resultados que caem a mais de 1 km do
 bairro declarado passaram a recuar para o bairro.
+
+![Inspeção espacial dos anúncios](figuras/eda_inspecao_espacial.png)
 
 **Duplicatas.**
 - Um mesmo imóvel pode estar anunciado por duas imobiliárias, e uma delas omite o número da casa.

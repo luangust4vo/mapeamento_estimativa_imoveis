@@ -3,8 +3,7 @@
 Registro de cronograma, decisões e pendências, mantido no repositório junto do código. Até 2026-11-16 as
 tarefas eram acompanhadas no Linear (projeto "Aluguéis de casas Ponta Grossa", tarefas IFP-5 a IFP-14). O
 quadro ficou desatualizado e foi substituído por este documento, que concentra planejamento e evidências num só
-lugar. A [proposta inicial](proposta-inicial.md) e o [plano da primeira entrega](superpowers/plans/2026-10-19-dados-eda.md)
-foram mantidos como registro histórico e ainda citam o Linear.
+lugar. A [proposta inicial](proposta-inicial.md) foi mantida como registro do escopo aprovado e ainda cita o Linear.
 
 ## Escopo
 Casas residenciais para **locação** em **Ponta Grossa (PR)**, a partir de anúncios públicos de imobiliárias
@@ -16,7 +15,7 @@ Datas dos commits; a coluna "Encontros" relaciona cada entrega ao planejamento d
 | Data | Entrega | Encontros | Evidência |
 |---|---|---|---|
 | 2026-10-19 | Escopo, requisitos e plano da primeira entrega | 1–2 | `docs/proposta-inicial.md` |
-| 2026-10-19/20 | Importação rastreável, auditoria de qualidade, EDA e CLI de relatórios | 3–5 | `docs/dados.md`, `docs/execucao-dados-eda.md` |
+| 2026-10-19/20 | Importação rastreável, auditoria de qualidade, EDA e CLI de relatórios | 3–5 | `docs/dados.md` |
 | 2026-11-09 | Coleta automatizada de 4 imobiliárias (236 anúncios) | 3 | `docs/coleta.md` |
 | 2026-11-09 | Geocodificação offline (CNEFE 2022) e bairros oficiais (malha IBGE 2022) | 6–7 | `docs/coleta.md`, `docs/dados.md` |
 | 2026-11-09 | Classificação por faixas: baselines, árvore, KNN, SVM e MLP, com estabilidade entre partições | 10–12 | `docs/classificacao.md` |
