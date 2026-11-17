@@ -126,6 +126,8 @@ def popup(row) -> str:
             ("R$/m²", fmt_m2(row.aluguel_m2))]
     if isinstance(row.perfil, str):
         rows.append(("Perfil", row.perfil))
+    if pd.notna(getattr(row, "aluguel_estimado", np.nan)):
+        rows.append(("Estimado pelo modelo", fmt_money(row.aluguel_estimado)))
     if isinstance(row.comparacao, str):
         rows.append(("Anunciado × estimado", f"{row.comparacao} (faixa {row.faixa_anunciada}, "
                                              f"modelo: {row.faixa_estimada})"))
@@ -239,8 +241,13 @@ def tab_simulator(sim: Simulator):
         return
     st.divider()
     cv = sim.metadata["validacao_cruzada"]["balanced_accuracy"]
-    c1, c2, c3 = st.columns(3)
     q1, median, q3 = res.referencia_comparaveis
+    if res.valor is not None:
+        c0, c1, c2, c3 = st.columns(4)
+        c0.metric("Aluguel estimado", fmt_money(res.valor))
+        c0.caption(f"80% de chance entre {fmt_money(res.valor_intervalo[0])} e {fmt_money(res.valor_intervalo[1])}")
+    else:
+        c1, c2, c3 = st.columns(3)
     c1.metric("Faixa estimada", res.faixa.upper())
     c1.caption(res.faixa_intervalo)
     c2.metric("Casas parecidas anunciadas (mediana)", fmt_money(median))
@@ -255,9 +262,16 @@ def tab_simulator(sim: Simulator):
         st.markdown(f"**Perfil semelhante:** {res.perfil}")
     for warning in res.avisos:
         st.warning(warning, icon="⚠️")
-    st.caption(f"O modelo ({sim.metadata['modelo'].upper()}) acerta a faixa em cerca de {cv['media']:.0%} dos casos "
-               f"(balanced accuracy na validação cruzada, ± {cv['desvio']:.0%}). Estimativa de aluguel anunciado, "
-               "não de preço negociado; não é avaliação imobiliária oficial.")
+    regression = sim.metadata.get("regressao") or {}
+    value_note = ""
+    if res.valor is not None:
+        err = regression["validacao_fora_da_amostra"]
+        value_note = (f" O valor em reais vem de um {regression['modelo'].upper()}, que erra em média "
+                      f"{fmt_money(err['mae'])} ({err['mape']:.0%}) em casas que não viu; o intervalo de 80% "
+                      "vem desses erros.")
+    st.caption(f"O classificador ({sim.metadata['modelo'].upper()}) acerta a faixa em cerca de {cv['media']:.0%} dos "
+               f"casos (balanced accuracy na validação cruzada, ± {cv['desvio']:.0%}).{value_note} Estimativa de "
+               "aluguel anunciado, não de preço negociado; não é avaliação imobiliária oficial.")
     st.markdown("**Casas parecidas anunciadas** (área, quartos e proximidade)")
     table = res.comparaveis.rename(columns={"bairro_oficial": "Bairro", "subtipo": "Tipo", "area_m2": "Área (m²)",
                                             "quartos": "Quartos", "banheiros": "Banheiros", "aluguel": "Aluguel (R$)",

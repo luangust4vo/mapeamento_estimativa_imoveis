@@ -24,8 +24,10 @@ from ..geo.bairros import load_bairros
 from ..modelagem.agrupamento import PROFILE_FEATURES, profile_table
 from ..modelagem.classificacao import BAND_NAMES, SCORING, QuantileBandClassifier, model_specs
 from ..modelagem.dataset import build_dataset, distance_km, house_subtype, prepare_snapshot
+from ..modelagem.regressao import INTERVAL, BairroMedianRegressor, metrics as reg_metrics, regression_specs
 
 FINAL_MODEL = "mlp"   # escolhido pela validação cruzada em 7 de 10 partições (docs/classificacao.md)
+FINAL_REGRESSOR = "svr"   # menor MAE na validação cruzada (docs/regressao.md)
 N_BANDS = 3
 N_PROFILES = 3        # K-means k=3 (docs/agrupamento.md)
 PROFILE_NAMES = {1: "compacta e econômica", 2: "familiar intermediária", 3: "ampla de alto padrão"}
@@ -53,6 +55,30 @@ def _fit_final_classifier(data, *, seed: int, specs=None):
     return search.best_estimator_, metrics, oof, params
 
 
+def _fit_final_regressor(data, *, seed: int, specs=None) -> tuple[object, dict, pd.Series]:
+    """Regressor final na base inteira, com hiperparâmetros por CV agrupada e intervalo dos resíduos fora da amostra."""
+    estimator, grid = (specs or regression_specs(seed))[FINAL_REGRESSOR]
+    cv = GroupKFold(n_splits=5, shuffle=True, random_state=seed)
+    search = GridSearchCV(estimator, [grid] if grid else [{}], scoring="neg_mean_absolute_error", cv=cv)
+    search.fit(data.X, data.y, groups=data.groups)
+    oof = pd.Series(np.nan, index=data.X.index)
+    baseline = pd.Series(np.nan, index=data.X.index)
+    for train, test in cv.split(data.X, data.y, data.groups):
+        X_train, y_train = data.X.iloc[train], data.y.iloc[train]
+        oof.iloc[test] = clone(search.best_estimator_).fit(X_train, y_train).predict(data.X.iloc[test])
+        baseline.iloc[test] = BairroMedianRegressor().fit(X_train, y_train).predict(data.X.iloc[test])
+    residuals = np.log(data.y / oof)
+    low, high = (float(q) for q in np.quantile(residuals, INTERVAL))
+    model_metrics, base_metrics = reg_metrics(data.y, oof), reg_metrics(data.y, baseline)
+    info = {"modelo": FINAL_REGRESSOR,
+            "hiperparametros": {k.split("__")[-1]: str(v) for k, v in search.best_params_.items()},
+            "validacao_fora_da_amostra": model_metrics, "referencia_mediana_bairro": base_metrics,
+            "intervalo": {"quantis": list(INTERVAL), "multiplicadores": [float(np.exp(low)), float(np.exp(high))]},
+            # Só exibe valor em reais se o modelo errar menos que a mediana do bairro nas mesmas dobras.
+            "mostrar_valor": bool(model_metrics["mae"] < base_metrics["mae"])}
+    return search.best_estimator_, info, oof
+
+
 def _fit_profiles(data, *, seed: int):
     table = profile_table(data)
     scaler = StandardScaler().fit(table)
@@ -63,13 +89,15 @@ def _fit_profiles(data, *, seed: int):
     return {"scaler": scaler, "kmeans": kmeans, "ordem": order, "atributos": PROFILE_FEATURES}, labels
 
 
-def build_artifacts(csv_path: Path, bairros_path: Path, out: Path, *, seed: int = 42, specs=None) -> dict:
+def build_artifacts(csv_path: Path, bairros_path: Path, out: Path, *, seed: int = 42, specs=None,
+                    reg_specs=None) -> dict:
     out = Path(out)
     if out.exists():
         raise ValueError("a pasta de artefatos já existe; escolha uma pasta nova.")
     snapshot = prepare_snapshot(csv_path, bairros_path)
     data = build_dataset(snapshot)
     classifier, metrics, oof, params = _fit_final_classifier(data, seed=seed, specs=specs)
+    regressor, regression, oof_rent = _fit_final_regressor(data, seed=seed, specs=reg_specs)
     profiles, profile_labels = _fit_profiles(data, seed=seed)
 
     listings = snapshot.loc[snapshot.coordenadas_validas].copy()
@@ -85,13 +113,14 @@ def build_artifacts(csv_path: Path, bairros_path: Path, out: Path, *, seed: int 
     table["faixa_estimada"] = oof.map(lambda b: names[b] if b >= 0 else None)
     table["comparacao"] = (oof - bands).map({-2: "acima do padrão", -1: "acima do padrão", 0: "dentro do padrão",
                                              1: "abaixo do padrão", 2: "abaixo do padrão"})
+    table["aluguel_estimado"] = oof_rent.round(0)
     table["perfil"] = profile_labels.map(lambda p: f"{p} · {PROFILE_NAMES.get(p, '')}")
     table["distancia_centro_km"] = distance_km(table.latitude, table.longitude)
 
     out.mkdir(parents=True)
     table.to_csv(out / "anuncios.csv", index=False)
     load_bairros(bairros_path).to_file(out / "bairros.geojson", driver="GeoJSON")
-    joblib.dump({"classificador": classifier, "perfis": profiles}, out / "modelos.joblib")
+    joblib.dump({"classificador": classifier, "regressor": regressor, "perfis": profiles}, out / "modelos.joblib")
     eligible = table[table.elegivel]
     metadata = {
         "gerado_em": datetime.now(timezone.utc).isoformat(),
@@ -101,6 +130,7 @@ def build_artifacts(csv_path: Path, bairros_path: Path, out: Path, *, seed: int 
         "modelo": FINAL_MODEL, "hiperparametros": {k: str(v) for k, v in params.items()}, "semente": seed,
         "faixas": {"nomes": list(names), "limites": [float(t) for t in classifier.thresholds_]},
         "validacao_cruzada": metrics,
+        "regressao": regression,
         "perfis": {str(k): v for k, v in PROFILE_NAMES.items()},
         # Área: percentis 1–99 (há valores extremos); contagens: mínimo e máximo observados.
         "faixa_treino_atributos": {

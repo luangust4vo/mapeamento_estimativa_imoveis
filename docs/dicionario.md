@@ -106,6 +106,7 @@ Na classificação, a imputação (mediana + indicador), a padronização e o on
 | `faixa_anunciada` | Faixa do aluguel anunciado (baixa ≤ R$ 1.500; média até R$ 3.800; alta acima) |
 | `faixa_estimada` | Faixa prevista por um modelo que não viu o anúncio (validação cruzada agrupada) |
 | `comparacao` | `dentro do padrão`, `acima do padrão` (anunciado acima do previsto) ou `abaixo do padrão` |
+| `aluguel_estimado` | Aluguel previsto pelo SVR por um modelo que não viu o anúncio (validação cruzada agrupada), em R$ |
 | `perfil` | Perfil do K-means: `1 · compacta e econômica`, `2 · familiar intermediária` ou `3 · ampla de alto padrão` |
 
 ## 6. Base processada pública (`export-base`)

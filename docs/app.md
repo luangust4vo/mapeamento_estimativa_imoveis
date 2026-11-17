@@ -1,6 +1,9 @@
 # Protótipo: mapa, filtros e simulador
 
 ## Executar
+O jeito mais simples é `python -m imoveis_pg demo`, que prepara o que faltar e abre o app (ver README).
+Passo a passo:
+
 ```bash
 # 1. Treinar o modelo final e gerar os artefatos (cerca de 1 min; fora da interface)
 python -m imoveis_pg build-app data/base_2026-11-09.csv --output data/app/2026-11-09
@@ -13,9 +16,9 @@ Nenhum modelo é treinado durante a navegação: tudo vem dos artefatos.
 ## Artefatos (`build-app`)
 | Arquivo | Conteúdo |
 |---|---|
-| `anuncios.csv` | anúncios com coordenadas, **sem endereço**: bairro oficial, atributos, aluguel, R$/m², precisão da localização, faixa anunciada, faixa estimada fora da amostra, comparação e perfil |
+| `anuncios.csv` | anúncios com coordenadas, **sem endereço**: bairro oficial, atributos, aluguel, R$/m², precisão da localização, faixa anunciada, faixa estimada e aluguel estimado fora da amostra, comparação e perfil |
 | `bairros.geojson` | os 16 bairros oficiais (IBGE, Censo 2022) |
-| `modelos.joblib` | classificador final e modelo de perfis (escalonador + K-means) |
+| `modelos.joblib` | classificador final (MLP), regressor final (SVR) e modelo de perfis (escalonador + K-means) |
 | `metadados.json` | data e fontes da base, hiperparâmetros, métricas de validação cruzada, limites das faixas e dos atributos, avisos |
 
 **Classificador final:** MLP, o modelo escolhido pela validação cruzada em 7 de 10 partições
@@ -23,6 +26,12 @@ Nenhum modelo é treinado durante a navegação: tudo vem dos artefatos.
 `GridSearchCV` com `GroupKFold` (5 dobras, agrupado por imóvel). Na base de 2026-11-09: `alpha = 0,01`,
 camadas (32, 16) e balanced accuracy de 0,712 ± 0,053 na validação cruzada. As faixas são os tercis da base
 inteira: baixa até R$ 1.500, média até R$ 3.800 e alta acima disso.
+
+**Regressor final:** SVR, escolhido pela validação cruzada nas 10 partições ([regressao.md](regressao.md)),
+reajustado nas 208 casas com o alvo em log (`C = 10`, `gamma = 0,01`, `epsilon = 0,05`). Fora da amostra, nas
+mesmas dobras, erra em média R$ 1.201 (32%), contra R$ 2.039 (64%) da mediana do bairro. Por isso
+`metadados.json` registra `mostrar_valor = true`; se o modelo não superasse a referência, o valor ficaria oculto.
+O intervalo de 80% multiplica a previsão por 0,64 e 1,67 (quantis dos resíduos fora da amostra).
 
 **Anunciado × estimado:** cada casa é prevista por um modelo que não a viu (mesmas dobras e hiperparâmetros).
 Na base atual: 149 dentro do padrão, 31 anunciadas acima e 28 abaixo do previsto.
@@ -37,8 +46,11 @@ Na base atual: 149 dentro do padrão, 31 anunciadas acima e 28 abaixo do previst
    - Tabela por bairro e exportação dos anúncios filtrados em CSV.
 2. **Simulador**
    - O usuário clica no mapa (contornos dos bairros oficiais) e informa área, quartos, banheiros, vagas, suítes e tipo.
-   - Resultado: faixa estimada com intervalo em reais, probabilidade por faixa, mediana das 5 casas anunciadas mais
-     parecidas, bairro oficial, número de casas num raio de 1 km, perfil semelhante e tabela de comparáveis com links.
+   - Resultado:
+     - **aluguel estimado com intervalo de 80%** e faixa estimada (com intervalo em reais e probabilidade por faixa);
+     - mediana das 5 casas anunciadas mais parecidas e tabela desses comparáveis, com links;
+     - bairro oficial, número de casas num raio de 1 km e perfil semelhante.
+   - Popups do mapa mostram também o aluguel estimado fora da amostra de cada anúncio.
 3. **Qualidade dos dados**
    - Anúncios por imobiliária, precisão da localização, atributos ausentes e bairros com poucos dados.
    - Lista dos anúncios acima ou abaixo do padrão.

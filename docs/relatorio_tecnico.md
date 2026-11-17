@@ -7,15 +7,18 @@
 
 ## Resumo
 Este trabalho constrói um sistema que coleta anúncios públicos de casas para alugar em Ponta Grossa (PR), trata
-e georreferencia os dados, analisa a distribuição espacial dos aluguéis e estima a **faixa de aluguel** de uma casa a
+e georreferencia os dados, analisa a distribuição espacial dos aluguéis e estima a **faixa** e o **valor do aluguel** de uma casa a
 partir do local e das características. Foram coletados 236 anúncios de quatro imobiliárias locais, dos quais
 208 casas residenciais formam a base dos modelos. Anúncios sem coordenadas foram geocodificados offline com o
 Cadastro Nacional de Endereços (CNEFE 2022, IBGE) e atribuídos aos 16 bairros oficiais da malha do Censo 2022.
 Na classificação em três faixas de aluguel, MLP e SVM tiveram o melhor desempenho (balanced accuracy média de
-0,66 e 0,65 no teste, em 10 partições), contra 0,54 de um baseline que usa só o bairro e 0,33 do acaso. O
+0,66 e 0,65 no teste, em 10 partições), contra 0,54 de um baseline que usa só o bairro e 0,33 do acaso. Na
+regressão do valor em reais, o SVR foi escolhido em todas as 10 partições e errou em média R$ 1.426 (31%), contra
+R$ 2.163 (65%) da mediana do bairro; seu intervalo de previsão de 80% cobriu 81% das casas do teste. O
 agrupamento revelou três perfis de casas (compactas, familiares e de alto padrão), que se distinguem mais pelo
 tamanho do que pelo preço por metro quadrado. O protótipo em Streamlit mostra o mapa do mercado com filtros e um
-simulador em que o usuário clica no mapa e recebe a faixa estimada, casas parecidas e avisos de confiabilidade.
+simulador em que o usuário clica no mapa e recebe o aluguel estimado com intervalo, a faixa, casas parecidas e
+avisos de confiabilidade.
 
 ---
 
@@ -117,9 +120,11 @@ erro, os 115 endereços da Torre Blanca (que têm coordenadas) foram geocodifica
 | Rua e CEP | 520 m |
 | Centro do bairro | ~2,9 km |
 
-A inspeção espacial revelou e corrigiu dois erros: um CEP genérico dos Correios (sufixo 970), que jogava sete casas
+A inspeção espacial (figura abaixo) revelou e corrigiu dois erros: um CEP genérico dos Correios (sufixo 970), que jogava sete casas
 num ponto rural, e um CEP de outra região, que deslocava anúncios em 7,7 km. Resultados que caem a mais de 1 km do
 bairro declarado passaram a recuar para o bairro.
+
+![Inspeção espacial dos anúncios](figuras/eda_inspecao_espacial.png)
 
 **Duplicatas.**
 - Um mesmo imóvel pode estar anunciado por duas imobiliárias, e uma delas omite o número da casa.
@@ -235,9 +240,45 @@ e subtipo. Nada derivado do aluguel.
 
 Detalhes, grades de hiperparâmetros e limitações em [classificacao.md](classificacao.md).
 
-## 8. Módulo adicional
-A regressão do valor em reais não foi implementada; a apostila a trata como ampliação, conforme o nível da turma.
-Em seu lugar, foram feitos módulos que a apostila lista como funcionalidades adicionais:
+## 8. Regressão e módulos adicionais
+### 8.1 Regressão do valor em reais
+**Alvo:** o log do aluguel, por causa da forte assimetria (seção 19 da apostila). As previsões voltam para reais
+antes de qualquer métrica.
+
+**Protocolo:** os mesmos atributos, partições por imóvel, validação cruzada agrupada e 10 repetições da
+classificação. Seleção pelo menor MAE médio na CV.
+
+**Métricas:** MAE e MAPE (em reais e em porcentagem, fáceis de interpretar), RMSE e R².
+
+**Intervalo de 80%:** vem dos quantis dos resíduos fora da amostra no treino, e sua cobertura é verificada no teste.
+
+| Modelo (10 partições) | MAE na CV | MAE no teste (média ± dp) | MAPE no teste | R² no teste | Escolhido |
+|---|---|---|---|---|---|
+| **SVR** | **R$ 1.279** | **R$ 1.426 ± 458** | **31%** | **0,58** | **10×** |
+| Regressão linear (Ridge) | R$ 1.411 | R$ 1.672 ± 508 | 37% | 0,43 | 0× |
+| KNN | R$ 1.479 | R$ 1.713 ± 516 | 36% | 0,44 | 0× |
+| Árvore de decisão | R$ 1.502 | R$ 1.736 ± 384 | 42% | 0,42 | 0× |
+| Referência: mediana do bairro | R$ 2.014 | R$ 2.163 ± 422 | 65% | 0,23 | — |
+| MLP | R$ 8.716 | R$ 25.565 ± 35.636 | 156% | negativo | 0× |
+
+![Previsto × anunciado](figuras/regressao_previsto.png)
+
+**Resultados:**
+- O SVR superou a referência por bairro em todas as partições.
+- O intervalo de 80% cobriu em média 81% das casas do teste (de 65% a 96%). Ele é largo: a previsão × 0,64 a × 1,67.
+- O MLP é instável com o alvo em log: pequenas extrapolações viram valores absurdos em reais.
+
+**Resíduos:**
+- Há regressão à média: as casas da faixa baixa são superestimadas (+36%) e as da alta subestimadas (−27%), o que
+  indica atributos ausentes de padrão e acabamento.
+- Os maiores erros são casas atípicas, por exemplo 760 m² no Centro a R$ 22.000 com previsão de R$ 10.117.
+
+![Viés por faixa de preço](figuras/regressao_vies.png)
+
+Detalhes em [regressao.md](regressao.md).
+
+### 8.2 Módulos adicionais
+Funcionalidades que a apostila lista como adicionais:
 - **Anunciado × estimado:** cada casa é prevista por um modelo que não a viu (validação cruzada agrupada). 149 casas
   estão dentro do padrão, 31 anunciadas acima e 28 abaixo da faixa prevista. Isso **não indica erro nem fraude**:
   são candidatas a imóvel especial, anúncio incorreto ou oportunidade (seção 9.4 da apostila).
@@ -256,7 +297,9 @@ Em seu lugar, foram feitos módulos que a apostila lista como funcionalidades ad
 | `analyze` | Qualidade e EDA |
 | `cluster` | Agrupamento |
 | `classify` | Classificação |
-| `build-app` | Treina o modelo final, fora da interface |
+| `regress` | Regressão do valor |
+| `export-base` | Base processada pública |
+| `build-app` | Treina os modelos finais, fora da interface |
 | `app` | Abre o Streamlit |
 
 O app não treina nada durante a navegação; ele lê artefatos gerados antes (modelo, anúncios sem endereço,
@@ -273,10 +316,12 @@ bairros e metadados). Bibliotecas: pandas, numpy, scikit-learn, geopandas, foliu
 
 **Simulador:**
 - o usuário clica no mapa, informa área, quartos, banheiros, vagas, suítes e tipo;
-- o app devolve a faixa estimada em reais, a probabilidade de cada faixa, o bairro oficial, o perfil semelhante
-  e as casas parecidas;
-- há avisos para ponto fora da cidade, baixa cobertura, extrapolação e **discordância entre o modelo e os
-  comparáveis**.
+- o app devolve o **aluguel estimado com intervalo de 80%** (SVR), a faixa e a probabilidade de cada faixa
+  (MLP), o bairro oficial, o perfil semelhante e as casas parecidas;
+- o valor só é exibido porque o modelo erra menos que a mediana do bairro (R$ 1.201 contra R$ 2.039, fora da
+  amostra);
+- há avisos para ponto fora da cidade, baixa cobertura, extrapolação e **discordância entre os modelos ou com os
+  comparáveis**. Uma diferença de até 10% na divisa entre faixas não gera aviso.
 
 O teste no navegador revelou um erro de codificação, depois corrigido: o usuário informar "0 suítes" gerava
 uma entrada que o modelo nunca viu no treino, onde a ausência do campo representa "sem suíte".
@@ -309,8 +354,8 @@ perfis de casas são estáveis e interpretáveis.
 
 **Trabalhos futuros:**
 - ampliar as fontes (Kikina, Conceito) e repetir a coleta em várias datas, para análise temporal;
-- calibrar as probabilidades do classificador;
-- implementar a regressão do valor;
+- calibrar as probabilidades do classificador e ajustar o intervalo da regressão por faixa de preço;
+- coletar atributos de padrão e acabamento, que faltam para reduzir o viés da regressão nos extremos;
 - verificar manualmente os anúncios fora do padrão.
 
 ### Respostas às perguntas orientadoras (seção 21 da apostila)
@@ -320,7 +365,7 @@ perfis de casas são estáveis e interpretáveis.
 | O preço por m² varia de forma consistente entre os bairros? | Em parte. As medianas diferem, mas a dispersão dentro dos bairros é alta, e há polos distintos no mesmo bairro (Cara Cara: 22,50 e 27,90). |
 | Os grupos correspondem às divisões oficiais? | Os perfis de casa não (ARI 0,04). As concentrações espaciais ficam dentro dos bairros quando o raio é pequeno, mas não os descrevem por inteiro. |
 | Que atributos diferenciam regiões caras das acessíveis? | Tamanho, banheiros e suítes: o alto padrão é a maior fatia no Centro (60%) e na Estrela (50%); Neves, Boa Vista e Chapada têm mais de 80% de casas compactas. |
-| Os modelos erram mais para baratos, intermediários ou alto padrão? | Para os intermediários (recall 0,39 na partição principal). |
+| Os modelos erram mais para baratos, intermediários ou alto padrão? | Na classificação, para os intermediários (recall 0,39 na partição principal). Na regressão, o erro em reais cresce com o preço (R$ 297 na faixa baixa, R$ 3.509 na alta) e há viés de regressão à média: +36% nas baratas, −27% nas caras. |
 | Há diferença entre fatores do aluguel e da venda? | Fora do escopo: a base é só de locação. |
 | Quais regiões têm resultados pouco confiáveis? | Nova Rússia e Vila Ildemira (menos de 5 casas), Olarias e Colônia Dona Luíza (5 e 6 casas), e anúncios com localização aproximada. |
 | Os anômalos são erros, imóveis especiais ou oportunidades? | 59 casas fogem da faixa prevista; distinguir os casos exige verificar cada anúncio, e o app as lista com link. |
@@ -337,6 +382,9 @@ perfis de casas são estáveis e interpretáveis.
 - Apostila do Projeto Integrador: *Sistema Inteligente de Mapeamento e Estimativa de Preços de Imóveis*.
 
 ## Apêndice A. Reprodução
+Para só usar o sistema, `python -m imoveis_pg demo` prepara o que faltar e abre o app (ver README).
+A sequência completa que gerou os números deste relatório:
+
 ```bash
 python -m pip install -r requirements-tested.txt && python -m pip install -e ".[dev]"
 for f in torreblanca portaldez granada vilanova; do
@@ -346,9 +394,10 @@ python -m imoveis_pg merge data/*_2026-11-09.csv --output data/base_2026-11-09.c
 python -m imoveis_pg analyze data/base_2026-11-09.csv --output reports/base-2026-11-09 --bairros data/raw/ibge/PR_bairros_CD2022.gpkg
 python -m imoveis_pg cluster data/base_2026-11-09.csv --output reports/agrupamento-2026-11-09
 python -m imoveis_pg classify data/base_2026-11-09.csv --output reports/classificacao-3faixas-2026-11-09 --repeticoes 10
+python -m imoveis_pg regress data/base_2026-11-09.csv --output reports/regressao-2026-11-09 --repeticoes 10
 python -m imoveis_pg build-app data/base_2026-11-09.csv --output data/app/2026-11-09
 python -m imoveis_pg app --artefatos data/app/2026-11-09
-python -m pytest -q   # 102 testes
+python -m pytest -q   # 123 testes
 ```
 A base processada pública está em `data/processado/base_2026-11-09.csv` (sem endereço; coordenadas arredondadas a ~100 m).
 Uma nova coleta gera dados de outra data. Para reproduzir exatamente estes resultados, use o cache de páginas
@@ -357,4 +406,4 @@ no `manifest.json`.
 
 ## Apêndice B. Documentos de apoio
 [coleta.md](coleta.md) · [dados.md](dados.md) · [dicionario.md](dicionario.md) · [classificacao.md](classificacao.md)
-· [agrupamento.md](agrupamento.md) · [app.md](app.md) · [gestao.md](gestao.md)
+· [regressao.md](regressao.md) · [agrupamento.md](agrupamento.md) · [app.md](app.md) · [gestao.md](gestao.md)

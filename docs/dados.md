@@ -58,3 +58,17 @@ Com `analyze --bairros`, a base recebe `bairro_oficial` (um dos 16 bairros da ma
 (`nome`); nomes não oficiais usam o polígono da coordenada aproximada (`poligono_aproximado`).
 Nome oficial e polígono discordantes geram `bairro_divergente` em issues.csv. A coluna `bairro` original é preservada.
 Tabelas regionais e `regioes` do quality.json passam a usar `bairro_oficial`.
+
+## Saídas do `analyze`
+- `observations.csv`: histórico completo, valores originais, identidade e derivados.
+- `snapshot.csv`: observação mais recente de cada identidade de anúncio.
+- `issues.csv`: problemas de importação, identidade, coordenadas, bairros e extremos.
+- `quality.json`: ausências, tipos, contagens, estatísticas e limitações.
+- `eda/`: tabelas regionais, correlações com contagem de pares e gráficos PNG.
+- `manifest.json`: SHA-256 da entrada, parâmetros, versões, marca sintética e lista de artefatos. É criado só após a
+  conclusão; sem ele, a saída está incompleta.
+
+O arquivo de entrada é preservado. Falhas de contrato retornam código 2. Saídas existentes nunca são sobrescritas;
+se ocorrer falha de escrita, artefatos parciais podem permanecer sem manifesto: tente de novo em outra pasta.
+Para testar sem dados reais: `python -m imoveis_pg analyze tests/fixtures/anuncios_sinteticos.csv --output reports/demo`
+(dados **sintéticos**, marcados no manifesto e nos gráficos).

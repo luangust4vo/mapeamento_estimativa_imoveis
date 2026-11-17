@@ -18,6 +18,13 @@ APP = Path(__file__).parents[1] / "src" / "imoveis_pg" / "app" / "streamlit_app.
 SPOTS = {"Uvaranas": (-25.10, -50.11, 900), "Cara Cara": (-25.14, -50.12, 2500)}
 
 
+def fast_reg_specs(seed):
+    from imoveis_pg.modelagem.regressao import log_target
+    from sklearn.tree import DecisionTreeRegressor
+    tree = log_target(Pipeline([("prep", preprocessor()), ("reg", DecisionTreeRegressor(random_state=seed))]))
+    return {"svr": (tree, {"regressor__reg__max_depth": [4]})}
+
+
 def fast_specs(seed):
     tree = Pipeline([("prep", preprocessor()), ("clf", DecisionTreeClassifier(random_state=seed))])
     return {"mlp": (tree, {"clf__max_depth": [3]})}
@@ -54,7 +61,7 @@ def artifacts(tmp_path_factory):
         writer.writerows(rows)
     gpkg = write_bairros_gpkg(root / "b.gpkg")
     out = root / "artefatos"
-    meta = build_artifacts(source, gpkg, out, specs=fast_specs(42))
+    meta = build_artifacts(source, gpkg, out, specs=fast_specs(42), reg_specs=fast_reg_specs(42))
     return out, meta
 
 
@@ -156,3 +163,46 @@ def test_public_base_has_no_address_and_rounded_coordinates(tmp_path, write_csv,
         mp.setattr(exportacao, "PUBLIC_COLUMNS", exportacao.PUBLIC_COLUMNS + ["endereco_original"])
         with pytest.raises(ValueError, match="proibidas"):
             exportacao.public_table(frame)
+
+
+def test_regression_value_and_interval(artifacts, sim):
+    meta = artifacts[1]["regressao"]
+    assert meta["mostrar_valor"] and meta["validacao_fora_da_amostra"]["mae"] < meta["referencia_mediana_bairro"]["mae"]
+    low, high = meta["intervalo"]["multiplicadores"]
+    assert low < 1 < high
+    res = sim.simulate(-25.14, -50.12, area_m2=200, quartos=3, banheiros=2, vagas=1, suites=1)
+    assert res.valor > 0 and res.valor_intervalo[0] < res.valor < res.valor_intervalo[1]
+    listings = pd.read_csv(artifacts[0] / "anuncios.csv")
+    assert listings.aluguel_estimado.notna().all()
+
+
+def test_value_hidden_when_model_does_not_beat_baseline(artifacts):
+    hidden = Simulator(artifacts[0])
+    hidden.metadata["regressao"]["mostrar_valor"] = False
+    res = hidden.simulate(-25.10, -50.11, area_m2=60, quartos=1, banheiros=1)
+    assert res.disponivel and res.valor is None and res.valor_intervalo is None
+
+
+def test_app_shows_estimated_value(artifacts, monkeypatch):
+    from streamlit.testing.v1 import AppTest
+    monkeypatch.setenv("IMOVEIS_PG_APP_DIR", str(artifacts[0]))
+    at = AppTest.from_file(str(APP), default_timeout=60).run()
+    at.session_state["ponto"] = (-25.14, -50.12)
+    at.run()
+    next(b for b in at.button if b.label == "Estimar aluguel").click().run()
+    assert not at.exception
+    value = next(m for m in at.metric if m.label == "Aluguel estimado")
+    assert value.value.startswith("R$ ")
+
+
+def test_value_near_band_border_does_not_count_as_disagreement(sim):
+    original = sim.limits
+    try:
+        sim.limits = [1500.0, 3800.0]
+        assert not sim.value_outside_band(1544, 0)       # 3% acima da divisa baixa/média
+        assert not sim.value_outside_band(1400, 1)       # 7% abaixo do início da média
+        assert sim.value_outside_band(1700, 0) and sim.value_outside_band(1300, 1)
+        assert not sim.value_outside_band(50_000, 2)     # faixa alta não tem teto
+        assert sim.value_outside_band(3300, 2)
+    finally:
+        sim.limits = original

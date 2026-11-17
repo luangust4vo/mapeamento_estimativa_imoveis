@@ -1,94 +1,89 @@
 # Aluguéis de casas em Ponta Grossa
 
-Importação rastreável de CSV, relatório de qualidade, análise exploratória e
-coleta automatizada de anúncios públicos de imobiliárias de Ponta Grossa.
-Inclui a comparação de classificadores por faixa de aluguel, o agrupamento de
-perfis e regiões e um app com mapa, filtros e simulador de aluguel.
+Sistema que coleta anúncios públicos de casas para alugar em Ponta Grossa (PR), mostra o mercado num mapa por
+bairro e estima o aluguel de uma casa a partir do local e das características.
 
-## Executar
-Python 3.12 ou superior. Na raiz deste repositório:
+![Mapa do mercado](docs/figuras/app_mapa.png)
 
+## Como rodar
+Requer **Python 3.12 ou superior**.
+
+**1. Instalar** (só na primeira vez, na pasta do projeto):
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install -e ".[dev]"
-python -m imoveis_pg analyze tests/fixtures/anuncios_sinteticos.csv --output reports/demo
-python -m pytest -q
+python3 -m venv .venv               # no Windows: python -m venv .venv
+source .venv/bin/activate          # no Windows: .venv\Scripts\activate
+pip install -r requirements-tested.txt
+pip install -e .
 ```
 
-Use uma pasta de saída nova a cada execução. O exemplo contém **dados sintéticos**,
-identificados no manifesto e nos gráficos. Para outro CSV:
-
+**2. Abrir o app:**
 ```bash
-python -m imoveis_pg analyze data/anuncios.csv --output reports/coleta-01 --sep ";" --decimal ","
+source .venv/bin/activate          # se o terminal for novo
+python -m imoveis_pg demo
 ```
+Depois abra **http://localhost:8501** no navegador. Para encerrar, use Ctrl+C no terminal.
 
-## Coletar dados reais
-```bash
-for f in torreblanca portaldez granada vilanova; do
-  python -m imoveis_pg collect $f --output data/${f}_2026-11-09.csv
-done
-python -m imoveis_pg merge data/*_2026-11-09.csv --output data/base_2026-11-09.csv
-python -m imoveis_pg analyze data/base_2026-11-09.csv --output reports/base-2026-11-09 \
-  --bairros data/raw/ibge/PR_bairros_CD2022.gpkg
-```
-Anúncios sem coordenadas são geocodificados localmente com o CNEFE 2022 do IBGE.
-Com `--bairros`, cada anúncio recebe um dos 16 bairros oficiais (malha do Censo 2022),
-usados nas tabelas e gráficos regionais. Os dois arquivos do IBGE são baixados
-automaticamente na primeira coleta que precisar geocodificar.
-Fontes, conduta da coleta, privacidade e limitações estão em [docs/coleta.md](docs/coleta.md).
-Os dados coletados ficam em data/ e não são versionados.
+- **Na primeira vez**, o `demo` coleta os anúncios nos sites das imobiliárias, baixa os dados do IBGE, treina os
+  modelos e abre o app. Leva cerca de 4 minutos e precisa de internet.
+- **Nas próximas vezes**, ele reaproveita o que já existe em `data/` e abre o app na hora.
+- Para coletar anúncios novos (de hoje): `python -m imoveis_pg demo --atualizar`.
+- Se uma etapa falhar (por exemplo, sem internet), rode o `demo` de novo: o que já foi concluído não é refeito.
 
-## Abrir o app (mapa, filtros e simulador)
-```bash
-python -m imoveis_pg build-app data/base_2026-11-09.csv --output data/app/2026-11-09
-python -m imoveis_pg app --artefatos data/app/2026-11-09   # http://localhost:8501
-```
-Clique no mapa, informe as características da casa e veja a faixa de aluguel estimada,
-as casas parecidas anunciadas e os avisos de confiabilidade. Detalhes em [docs/app.md](docs/app.md).
+**No app:**
+- **Mapa do mercado:** aluguel mediano por bairro, anúncios e filtros (tipo, bairro, preço, quartos).
+- **Simulador:** clique no mapa, informe as características da casa e veja o aluguel estimado com intervalo, a faixa
+  de preço, casas parecidas anunciadas e avisos de confiabilidade.
+- **Qualidade dos dados** e **Sobre e limitações**.
 
-## Classificar faixas de aluguel
-```bash
-python -m imoveis_pg classify data/base_2026-11-09.csv --output reports/classificacao-3faixas-2026-11-09
-```
-Compara baselines, árvore de decisão, KNN, SVM e MLP em faixas de aluguel por quantis
-(`--faixas 3` por padrão). Método, resultados e limitações em [docs/classificacao.md](docs/classificacao.md).
+## O que o projeto faz
+| Etapa | Como | Documentação |
+|---|---|---|
+| Coleta | Anúncios públicos de 4 imobiliárias, respeitando `robots.txt`, sem dados pessoais | [coleta.md](docs/coleta.md) |
+| Localização | Geocodificação offline com o CNEFE 2022 e 16 bairros oficiais (IBGE) | [coleta.md](docs/coleta.md), [dados.md](docs/dados.md) |
+| Qualidade e EDA | Padronização, duplicatas, extremos, distribuições e comparação por bairro | [dados.md](docs/dados.md) |
+| Agrupamento | K-means, Ward e DBSCAN: perfis de casas e concentrações de oferta | [agrupamento.md](docs/agrupamento.md) |
+| Classificação | Faixas de aluguel: árvore, KNN, SVM e MLP contra baselines | [classificacao.md](docs/classificacao.md) |
+| Regressão | Valor em reais: linear, árvore, KNN, SVR e MLP, com intervalo de 80% | [regressao.md](docs/regressao.md) |
+| App | Mapa, filtros e simulador em Streamlit | [app.md](docs/app.md) |
 
-## Agrupar perfis e regiões
-```bash
-python -m imoveis_pg cluster data/base_2026-11-09.csv --output reports/agrupamento-2026-11-09
-```
-K-means, hierárquico (Ward) e DBSCAN para perfis de casas, e DBSCAN geográfico para concentrações de oferta.
-Escolhas, resultados e interpretação em [docs/agrupamento.md](docs/agrupamento.md).
+O [relatório técnico](docs/relatorio_tecnico.md) reúne métodos, resultados e limitações.
 
-O [contrato de entrada](docs/dados.md) define as 20 colunas obrigatórias,
-unidades, campos opcionais e tratamento de valores inválidos. A instalação
-testada está registrada em requirements-tested.txt; para reproduzir suas versões,
-instale esse arquivo antes de instalar o pacote editável.
+## Comandos individuais
+O `demo` só encadeia os comandos abaixo. Use-os para refazer uma etapa ou reproduzir os resultados do relatório
+(todos aceitam `--help`):
 
-## Resultados
-- observations.csv: histórico completo, valores originais, identidade e derivados.
-- snapshot.csv: observação mais recente de cada identidade de anúncio.
-- issues.csv: problemas de importação, identidade, coordenadas e extremos.
-- quality.json: ausências, tipos, contagens, estatísticas e limitações.
-- eda/: tabelas regionais, correlações com contagem de pares e seis gráficos PNG.
-- manifest.json: SHA-256 da entrada, parâmetros, versões, marca sintética e lista
-  de artefatos. Só é criado após a conclusão; sem ele, a saída está incompleta.
+| Comando | Faz |
+|---|---|
+| `collect FONTE --output CSV` | Coleta uma imobiliária (`torreblanca`, `portaldez`, `granada`, `vilanova`) |
+| `merge CSV... --output CSV` | Une as fontes numa base única |
+| `analyze CSV --output PASTA --bairros GPKG` | Relatório de qualidade e EDA |
+| `cluster CSV --output PASTA` | Agrupamento |
+| `classify CSV --output PASTA --repeticoes 10` | Classificação com estabilidade entre partições |
+| `regress CSV --output PASTA --repeticoes 10` | Regressão com estabilidade entre partições |
+| `export-base CSV --output CSV` | Base processada pública, sem endereço |
+| `build-app CSV --output PASTA` | Treina os modelos do app |
+| `app --artefatos PASTA` | Abre o app com modelos já treinados |
 
-O arquivo de entrada é preservado. Falhas de contrato retornam código 2.
-Saídas existentes nunca são sobrescritas. Se ocorrer falha de escrita, artefatos
-parciais podem permanecer sem manifesto; tente novamente em outra pasta.
+A sequência completa que gerou os números do relatório está no
+[Apêndice A do relatório técnico](docs/relatorio_tecnico.md#apêndice-a-reprodução). Cada saída grava sementes,
+parâmetros, versões e o SHA-256 da entrada num `manifest.json`, e nenhuma saída existente é sobrescrita.
+
+**Testes:** `pip install -e ".[dev]"` e depois `python -m pytest -q`.
+
+## Dados
+- Os dados coletados ficam em `data/` e **não vão para o git**. As páginas brutas contêm nomes de corretores e nunca
+  devem ser publicadas.
+- A única exceção é a base processada pública `data/processado/base_2026-11-09.csv`: 236 anúncios, sem endereço,
+  com coordenadas arredondadas a ~100 m ([data/README.md](data/README.md)).
+- Todas as colunas estão descritas no [dicionário de dados](docs/dicionario.md).
 
 ## Limitações
-- Estima o aluguel **anunciado** em quatro imobiliárias numa única data, não o preço negociado; não é
-  avaliação imobiliária oficial.
-- Coordenadas sem número exato são aproximadas (rua, CEP ou bairro) e marcadas como tais; o erro medido vai
-  de ~74 m a ~3 km conforme o método ([docs/coleta.md](docs/coleta.md)).
-- Com 208 casas no modelo, as métricas variam cerca de ±0,09 entre partições ([docs/classificacao.md](docs/classificacao.md)).
-- Possíveis duplicatas entre fontes são sinalizadas, não fundidas. IPTU sem periodicidade e custos ausentes
-  não viram zero. Outliers permanecem na base; correlação não indica causalidade.
-- Nenhum atributo derivado do aluguel entra como preditor.
+- Estima o aluguel **anunciado** por quatro imobiliárias, não o preço negociado; não é avaliação imobiliária oficial.
+- Com cerca de 200 casas, as estimativas são aproximadas: o erro médio da regressão é de ~31%, e a faixa acerta
+  cerca de 2 em cada 3 casas.
+- Coordenadas sem número exato são aproximadas (rua, CEP ou bairro) e marcadas como tais.
+- Bairros com menos de 5 anúncios são indicados como de baixa confiabilidade.
 
 ## Desenvolvimento
-[Relatório técnico](docs/relatorio_tecnico.md), [escopo aprovado](docs/proposta-inicial.md), [cronograma, decisões e pendências](docs/gestao.md) e
-[dicionário de dados](docs/dicionario.md). Commits seguem Conventional Commits.
+[Cronograma, decisões e pendências](docs/gestao.md) · [escopo inicial](docs/proposta-inicial.md) ·
+[contrato de dados](docs/dados.md). Commits seguem Conventional Commits.
