@@ -1,6 +1,9 @@
 # Protótipo: mapa, filtros e simulador
 
 ## Executar
+O jeito mais simples é `python -m imoveis_pg demo`, que prepara o que faltar e abre o app (ver README).
+Passo a passo:
+
 ```bash
 # 1. Treinar o modelo final e gerar os artefatos (cerca de 1 min; fora da interface)
 python -m imoveis_pg build-app data/base_2026-11-09.csv --output data/app/2026-11-09

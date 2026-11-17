@@ -380,6 +380,9 @@ perfis de casas são estáveis e interpretáveis.
 - Apostila do Projeto Integrador: *Sistema Inteligente de Mapeamento e Estimativa de Preços de Imóveis*.
 
 ## Apêndice A. Reprodução
+Para só usar o sistema, `python -m imoveis_pg demo` prepara o que faltar e abre o app (ver README).
+A sequência completa que gerou os números deste relatório:
+
 ```bash
 python -m pip install -r requirements-tested.txt && python -m pip install -e ".[dev]"
 for f in torreblanca portaldez granada vilanova; do
@@ -392,7 +395,7 @@ python -m imoveis_pg classify data/base_2026-11-09.csv --output reports/classifi
 python -m imoveis_pg regress data/base_2026-11-09.csv --output reports/regressao-2026-11-09 --repeticoes 10
 python -m imoveis_pg build-app data/base_2026-11-09.csv --output data/app/2026-11-09
 python -m imoveis_pg app --artefatos data/app/2026-11-09
-python -m pytest -q   # 116 testes
+python -m pytest -q   # 123 testes
 ```
 A base processada pública está em `data/processado/base_2026-11-09.csv` (sem endereço; coordenadas arredondadas a ~100 m).
 Uma nova coleta gera dados de outra data. Para reproduzir exatamente estes resultados, use o cache de páginas

@@ -24,6 +24,7 @@ Datas dos commits; a coluna "Encontros" relaciona cada entrega ao planejamento d
 | 2026-11-09 | Protótipo Streamlit: mapa, filtros, simulador, qualidade dos dados | 14 | `docs/app.md` |
 | 2026-11-16 | Filtros reorganizados, dicionário de dados e este registro de gestão | 15 | `docs/dicionario.md` |
 | 2026-11-16 | Regressão do valor em reais e valor estimado no simulador | 13 | `docs/regressao.md` |
+| 2026-11-16 | Comando único `demo` e README simplificado | 15 | `README.md` |
 
 ## Registro de decisões
 | Data | Decisão | Motivo | Alternativa descartada |
