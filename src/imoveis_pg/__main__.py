@@ -78,7 +78,15 @@ def main(argv=None) -> int:
     regress.add_argument("--seed", type=int, default=42)
     regress.add_argument("--repeticoes", type=int, default=0,
                          help="Repetir o experimento com N sementes (0..N-1) para medir estabilidade.")
+    demo = sub.add_parser("demo", help="Preparar o que faltar (coleta, base, modelos) e abrir o app.")
+    demo.add_argument("--dados", type=Path, default=Path("data"), help="Pasta de dados (padrão: data).")
+    demo.add_argument("--atualizar", action="store_true",
+                      help="Coletar anúncios novos hoje em vez de reaproveitar a base mais recente.")
+    demo.add_argument("--port", type=int, default=8501)
     args = parser.parse_args(argv)
+    if args.command == "demo":
+        from .demo import run as run_demo
+        return run_demo(args.dados, refresh=args.atualizar, port=args.port)
     if args.command == "regress":
         return _regress(args)
     if args.command == "export-base":
